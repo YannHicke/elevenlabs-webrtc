@@ -25198,8 +25198,19 @@ var require_app = __commonJS({
     var stopBtn = document.getElementById("stop");
     var statusEl = document.getElementById("status");
     var logEl = document.getElementById("log");
+    var editModal = document.getElementById("edit-modal");
+    var editForm = document.getElementById("edit-form");
+    var editAgentId = document.getElementById("edit-agent-id");
+    var editAgentName = document.getElementById("edit-agent-name");
+    var editAgentPrompt = document.getElementById("edit-agent-prompt");
+    var editFirstMessage = document.getElementById("edit-first-message");
+    var editVoiceSelect = document.getElementById("edit-voice-select");
+    var editLanguageSelect = document.getElementById("edit-language-select");
+    var saveAgentBtn = document.getElementById("save-agent-btn");
+    var deleteAgentBtn = document.getElementById("delete-agent-btn");
     var conversation = null;
     var currentAgentId = null;
+    var voicesCache = null;
     var log2 = (message) => {
       const entry = document.createElement("div");
       entry.className = "log-entry";
@@ -25226,12 +25237,16 @@ var require_app = __commonJS({
         const response = await fetch("/api/voices");
         if (!response.ok) throw new Error("Failed to load voices");
         const { voices } = await response.json();
-        voiceSelect.innerHTML = voices.map(
+        voicesCache = voices;
+        const options = voices.map(
           (v2) => `<option value="${v2.voice_id}">${v2.name} (${v2.category || "custom"})</option>`
         ).join("");
+        voiceSelect.innerHTML = options;
+        editVoiceSelect.innerHTML = options;
       } catch (error) {
         console.error("Error loading voices:", error);
         voiceSelect.innerHTML = '<option value="">Failed to load voices</option>';
+        editVoiceSelect.innerHTML = '<option value="">Failed to load voices</option>';
       }
     }
     async function loadAgents() {
@@ -25251,9 +25266,14 @@ var require_app = __commonJS({
           <h4>${agent.name || "Unnamed Agent"}</h4>
           <p>ID: ${agent.agent_id}</p>
         </div>
-        <button onclick="window.selectAgent('${agent.agent_id}', '${(agent.name || "Unnamed Agent").replace(/'/g, "\\'")}')">
-          Select
-        </button>
+        <div class="agent-card-actions">
+          <button class="btn-edit" onclick="window.editAgent('${agent.agent_id}')">
+            Edit
+          </button>
+          <button onclick="window.selectAgent('${agent.agent_id}', '${(agent.name || "Unnamed Agent").replace(/'/g, "\\'")}')">
+            Select
+          </button>
+        </div>
       </div>
     `).join("");
       } catch (error) {
@@ -25268,6 +25288,110 @@ var require_app = __commonJS({
       startBtn.disabled = false;
       log2(`Selected agent: ${agentName}`);
     };
+    window.editAgent = async function(agentId) {
+      try {
+        editModal.classList.remove("hidden");
+        editForm.reset();
+        editAgentId.value = agentId;
+        saveAgentBtn.disabled = true;
+        saveAgentBtn.innerHTML = '<span class="loading"></span>Loading...';
+        const response = await fetch(`/api/agents/${agentId}`);
+        if (!response.ok) throw new Error("Failed to load agent");
+        const agent = await response.json();
+        editAgentName.value = agent.name || "";
+        editAgentPrompt.value = agent.conversation_config?.agent?.prompt?.prompt || "";
+        editFirstMessage.value = agent.conversation_config?.agent?.first_message || "";
+        editLanguageSelect.value = agent.conversation_config?.agent?.language || "en";
+        const voiceId = agent.conversation_config?.tts?.voice_id;
+        if (voiceId) {
+          editVoiceSelect.value = voiceId;
+        }
+        saveAgentBtn.disabled = false;
+        saveAgentBtn.innerHTML = "Save Changes";
+      } catch (error) {
+        console.error("Error loading agent:", error);
+        alert("Failed to load agent details");
+        editModal.classList.add("hidden");
+      }
+    };
+    window.closeEditModal = function() {
+      editModal.classList.add("hidden");
+    };
+    editForm.addEventListener("submit", async (e2) => {
+      e2.preventDefault();
+      const agentId = editAgentId.value;
+      if (!agentId) return;
+      saveAgentBtn.disabled = true;
+      saveAgentBtn.innerHTML = '<span class="loading"></span>Saving...';
+      try {
+        const response = await fetch(`/api/agents/${agentId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: editAgentName.value.trim() || void 0,
+            prompt: editAgentPrompt.value.trim() || void 0,
+            firstMessage: editFirstMessage.value.trim(),
+            voiceId: editVoiceSelect.value || void 0,
+            language: editLanguageSelect.value || void 0
+          })
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.details?.detail?.message || error.error || "Failed to update agent");
+        }
+        log2(`Updated agent: ${agentId}`);
+        window.closeEditModal();
+        loadAgents();
+      } catch (error) {
+        console.error("Error updating agent:", error);
+        alert(`Failed to update agent: ${error.message}`);
+      } finally {
+        saveAgentBtn.disabled = false;
+        saveAgentBtn.innerHTML = "Save Changes";
+      }
+    });
+    deleteAgentBtn.addEventListener("click", async () => {
+      const agentId = editAgentId.value;
+      if (!agentId) return;
+      const confirmed = confirm("Are you sure you want to delete this agent? This action cannot be undone.");
+      if (!confirmed) return;
+      deleteAgentBtn.disabled = true;
+      deleteAgentBtn.innerHTML = '<span class="loading"></span>Deleting...';
+      try {
+        const response = await fetch(`/api/agents/${agentId}`, {
+          method: "DELETE"
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to delete agent");
+        }
+        log2(`Deleted agent: ${agentId}`);
+        if (currentAgentId === agentId) {
+          currentAgentId = null;
+          activeAgentEl.textContent = "None selected";
+          conversationSection.classList.add("hidden");
+          startBtn.disabled = true;
+        }
+        window.closeEditModal();
+        loadAgents();
+      } catch (error) {
+        console.error("Error deleting agent:", error);
+        alert(`Failed to delete agent: ${error.message}`);
+      } finally {
+        deleteAgentBtn.disabled = false;
+        deleteAgentBtn.innerHTML = "Delete Agent";
+      }
+    });
+    editModal.addEventListener("click", (e2) => {
+      if (e2.target === editModal) {
+        window.closeEditModal();
+      }
+    });
+    document.addEventListener("keydown", (e2) => {
+      if (e2.key === "Escape" && !editModal.classList.contains("hidden")) {
+        window.closeEditModal();
+      }
+    });
     agentForm.addEventListener("submit", async (e2) => {
       e2.preventDefault();
       const prompt = agentPromptInput.value.trim();

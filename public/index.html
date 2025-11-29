@@ -74,6 +74,66 @@
         </div>
       </section>
 
+      <!-- Edit Agent Modal -->
+      <div id="edit-modal" class="modal hidden">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Edit Agent</h2>
+            <button class="modal-close" onclick="window.closeEditModal()">&times;</button>
+          </div>
+          <form id="edit-form">
+            <input type="hidden" id="edit-agent-id" />
+            
+            <div class="form-group">
+              <label for="edit-agent-name">Agent Name</label>
+              <input type="text" id="edit-agent-name" placeholder="My Custom Agent" />
+            </div>
+
+            <div class="form-group">
+              <label for="edit-agent-prompt">System Prompt</label>
+              <textarea id="edit-agent-prompt" rows="6" placeholder="You are a helpful assistant..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-first-message">First Message</label>
+              <input type="text" id="edit-first-message" placeholder="Hello! How can I help you today?" />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-voice-select">Voice</label>
+                <select id="edit-voice-select">
+                  <option value="">Loading voices...</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="edit-language-select">Language</label>
+                <select id="edit-language-select">
+                  <option value="en">English</option>
+                  <option value="es">Spanish</option>
+                  <option value="fr">French</option>
+                  <option value="de">German</option>
+                  <option value="it">Italian</option>
+                  <option value="pt">Portuguese</option>
+                  <option value="pl">Polish</option>
+                  <option value="hi">Hindi</option>
+                  <option value="ja">Japanese</option>
+                  <option value="ko">Korean</option>
+                  <option value="zh">Chinese</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="modal-actions">
+              <button type="button" class="btn-secondary" onclick="window.closeEditModal()">Cancel</button>
+              <button type="button" class="btn-danger" id="delete-agent-btn">Delete Agent</button>
+              <button type="submit" id="save-agent-btn">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <!-- Conversation Section -->
       <section id="conversation-section" class="conversation-section hidden">
         <h2>Conversation</h2>
