@@ -183,18 +183,31 @@ input:focus, textarea:focus, select:focus {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
 }
 
 .voice-search input {
   flex: 1;
+  min-width: 200px;
 }
 
 .voice-search select {
-  width: 140px;
+  width: 130px;
 }
 
 .voice-search button {
   padding: 0.65rem 1.25rem;
+}
+
+@media (max-width: 600px) {
+  .voice-search {
+    flex-direction: column;
+  }
+  
+  .voice-search input,
+  .voice-search select {
+    width: 100%;
+  }
 }
 
 .voice-suggestions {

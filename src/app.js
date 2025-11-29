@@ -38,6 +38,7 @@ const browseVoicesBtn = document.getElementById("browse-voices-btn");
 // Voice library modal
 const voiceLibraryModal = document.getElementById("voice-library-modal");
 const voiceSearchInput = document.getElementById("voice-search-input");
+const voiceLanguageFilter = document.getElementById("voice-language-filter");
 const voiceGenderFilter = document.getElementById("voice-gender-filter");
 const voiceSearchBtn = document.getElementById("voice-search-btn");
 const voiceLibraryResults = document.getElementById("voice-library-results");
@@ -193,12 +194,13 @@ function stopPreview() {
   }
 }
 
-async function searchVoiceLibrary(searchTerm, gender) {
+async function searchVoiceLibrary(searchTerm, language, gender) {
   voiceLibraryResults.innerHTML = '<p>Searching...</p>';
   
   try {
     const params = new URLSearchParams();
     if (searchTerm) params.set("search", searchTerm);
+    if (language) params.set("language", language);
     if (gender) params.set("gender", gender);
     params.set("page_size", "30");
     
@@ -220,6 +222,7 @@ async function searchVoiceLibrary(searchTerm, gender) {
           <p>${escapeHtml(v.description || 'No description')}</p>
           <div class="voice-meta">
             ${v.category ? `<span class="voice-tag">${v.category}</span>` : ''}
+            ${v.labels?.language ? `<span class="voice-tag">${v.labels.language.toUpperCase()}</span>` : ''}
             ${v.labels?.gender ? `<span class="voice-tag">${v.labels.gender}</span>` : ''}
             ${v.labels?.age ? `<span class="voice-tag">${v.labels.age}</span>` : ''}
             ${v.labels?.accent ? `<span class="voice-tag">${v.labels.accent}</span>` : ''}
@@ -311,12 +314,12 @@ window.addVoiceFromLibrary = async function(publicOwnerId, voiceId, voiceName) {
 
 // Voice search handlers
 voiceSearchBtn.addEventListener("click", () => {
-  searchVoiceLibrary(voiceSearchInput.value.trim(), voiceGenderFilter.value);
+  searchVoiceLibrary(voiceSearchInput.value.trim(), voiceLanguageFilter.value, voiceGenderFilter.value);
 });
 
 voiceSearchInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") {
-    searchVoiceLibrary(voiceSearchInput.value.trim(), voiceGenderFilter.value);
+    searchVoiceLibrary(voiceSearchInput.value.trim(), voiceLanguageFilter.value, voiceGenderFilter.value);
   }
 });
 
@@ -324,7 +327,7 @@ voiceSuggestionChips.forEach(chip => {
   chip.addEventListener("click", () => {
     const searchTerm = chip.dataset.search;
     voiceSearchInput.value = searchTerm;
-    searchVoiceLibrary(searchTerm, voiceGenderFilter.value);
+    searchVoiceLibrary(searchTerm, voiceLanguageFilter.value, voiceGenderFilter.value);
   });
 });
 

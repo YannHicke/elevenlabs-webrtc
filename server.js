@@ -70,11 +70,12 @@ app.get("/api/voice-library", async (req, res) => {
       return res.status(500).json({ error: "Server missing ElevenLabs API key" });
     }
 
-    const { search, gender, age, category, page_size = 30 } = req.query;
+    const { search, language, gender, age, category, page_size = 30 } = req.query;
     
     const url = new URL("https://api.elevenlabs.io/v1/shared-voices");
     url.searchParams.set("page_size", page_size);
     if (search) url.searchParams.set("search", search);
+    if (language) url.searchParams.set("language", language);
     if (gender) url.searchParams.set("gender", gender);
     if (age) url.searchParams.set("age", age);
     if (category) url.searchParams.set("category", category);
