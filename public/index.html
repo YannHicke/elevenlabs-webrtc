@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ElevenLabs WebRTC Demo</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>ElevenLabs WebRTC Demo</h1>
+      <p>
+        Click start to request a signed token from your backend and open a WebRTC session with the
+        configured agent.
+      </p>
+      <section class="controls">
+        <label>
+          Display name
+          <input id="participant" type="text" placeholder="web_client" />
+        </label>
+        <audio id="remoteAudio" autoplay></audio>
+        <div class="buttons">
+          <button id="start">Start conversation</button>
+          <button id="stop" disabled>Stop conversation</button>
+        </div>
+        <p class="status" id="status">Status: idle</p>
+      </section>
+      <section>
+        <h2>Events</h2>
+        <div id="log" class="log"></div>
+      </section>
+    </main>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

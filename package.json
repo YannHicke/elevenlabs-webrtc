@@ -1,0 +1,24 @@
+{
+  "name": "elevenlabs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "build": "esbuild src/app.js --bundle --outfile=public/app.js --format=esm --target=es2020",
+    "start": "node server.js",
+    "dev": "npm run build && node server.js",
+    "watch": "esbuild src/app.js --bundle --outfile=public/app.js --format=esm --target=es2020 --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@elevenlabs/client": "^0.12.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.0"
+  }
+}

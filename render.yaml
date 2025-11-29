@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: elevenlabs-webrtc
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: node server.js
+    envVars:
+      - key: ELEVEN_API_KEY
+        sync: false
+      - key: ELEVEN_AGENT_ID
+        sync: false
+      - key: NODE_ENV
+        value: production
+
