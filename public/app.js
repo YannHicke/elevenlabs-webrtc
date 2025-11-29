@@ -25182,11 +25182,24 @@ registerProcessor("rawAudioProcessor", RawAudioProcessor);
 var require_app = __commonJS({
   "src/app.js"() {
     init_lib_modern();
+    var tabs = document.querySelectorAll(".tab");
+    var tabContents = document.querySelectorAll(".tab-content");
+    var agentForm = document.getElementById("agent-form");
+    var agentNameInput = document.getElementById("agent-name");
+    var agentPromptInput = document.getElementById("agent-prompt");
+    var firstMessageInput = document.getElementById("first-message");
+    var voiceSelect = document.getElementById("voice-select");
+    var languageSelect = document.getElementById("language-select");
+    var createAgentBtn = document.getElementById("create-agent-btn");
+    var agentsList = document.getElementById("agents-list");
+    var conversationSection = document.getElementById("conversation-section");
+    var activeAgentEl = document.getElementById("active-agent").querySelector("span");
     var startBtn = document.getElementById("start");
     var stopBtn = document.getElementById("stop");
     var statusEl = document.getElementById("status");
     var logEl = document.getElementById("log");
     var conversation = null;
+    var currentAgentId = null;
     var log2 = (message) => {
       const entry = document.createElement("div");
       entry.className = "log-entry";
@@ -25196,28 +25209,125 @@ var require_app = __commonJS({
     var setStatus = (text) => {
       statusEl.textContent = `Status: ${text}`;
     };
-    var getWebRTCToken = async () => {
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const targetTab = tab.dataset.tab;
+        tabs.forEach((t) => t.classList.remove("active"));
+        tabContents.forEach((c2) => c2.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(`${targetTab}-tab`).classList.add("active");
+        if (targetTab === "existing") {
+          loadAgents();
+        }
+      });
+    });
+    async function loadVoices() {
+      try {
+        const response = await fetch("/api/voices");
+        if (!response.ok) throw new Error("Failed to load voices");
+        const { voices } = await response.json();
+        voiceSelect.innerHTML = voices.map(
+          (v2) => `<option value="${v2.voice_id}">${v2.name} (${v2.category || "custom"})</option>`
+        ).join("");
+      } catch (error) {
+        console.error("Error loading voices:", error);
+        voiceSelect.innerHTML = '<option value="">Failed to load voices</option>';
+      }
+    }
+    async function loadAgents() {
+      try {
+        agentsList.innerHTML = "<p>Loading agents...</p>";
+        const response = await fetch("/api/agents");
+        if (!response.ok) throw new Error("Failed to load agents");
+        const data = await response.json();
+        const agents = data.agents || [];
+        if (agents.length === 0) {
+          agentsList.innerHTML = "<p>No agents found. Create one first!</p>";
+          return;
+        }
+        agentsList.innerHTML = agents.map((agent) => `
+      <div class="agent-card">
+        <div class="agent-card-info">
+          <h4>${agent.name || "Unnamed Agent"}</h4>
+          <p>ID: ${agent.agent_id}</p>
+        </div>
+        <button onclick="window.selectAgent('${agent.agent_id}', '${(agent.name || "Unnamed Agent").replace(/'/g, "\\'")}')">
+          Select
+        </button>
+      </div>
+    `).join("");
+      } catch (error) {
+        console.error("Error loading agents:", error);
+        agentsList.innerHTML = "<p>Failed to load agents. Please try again.</p>";
+      }
+    }
+    window.selectAgent = function(agentId, agentName) {
+      currentAgentId = agentId;
+      activeAgentEl.textContent = agentName;
+      conversationSection.classList.remove("hidden");
+      startBtn.disabled = false;
+      log2(`Selected agent: ${agentName}`);
+    };
+    agentForm.addEventListener("submit", async (e2) => {
+      e2.preventDefault();
+      const prompt = agentPromptInput.value.trim();
+      if (!prompt) {
+        alert("Please enter a system prompt for your agent.");
+        return;
+      }
+      createAgentBtn.disabled = true;
+      createAgentBtn.innerHTML = '<span class="loading"></span>Creating...';
+      try {
+        const response = await fetch("/api/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: agentNameInput.value.trim() || "Custom Agent",
+            prompt,
+            firstMessage: firstMessageInput.value.trim(),
+            voiceId: voiceSelect.value,
+            language: languageSelect.value
+          })
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.details?.detail?.message || error.error || "Failed to create agent");
+        }
+        const agent = await response.json();
+        log2(`Created agent: ${agent.agent_id}`);
+        window.selectAgent(agent.agent_id, agentNameInput.value.trim() || "Custom Agent");
+        agentForm.reset();
+      } catch (error) {
+        console.error("Error creating agent:", error);
+        alert(`Failed to create agent: ${error.message}`);
+      } finally {
+        createAgentBtn.disabled = false;
+        createAgentBtn.innerHTML = "Create Agent";
+      }
+    });
+    async function getWebRTCToken(agentId) {
       const response = await fetch("/api/webrtc-token", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        }
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId })
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.error || "Failed to retrieve WebRTC token");
       }
       return response.json();
-    };
-    var startCall = async () => {
+    }
+    async function startCall() {
+      if (!currentAgentId) {
+        alert("Please select an agent first.");
+        return;
+      }
       startBtn.disabled = true;
       stopBtn.disabled = true;
       setStatus("requesting token");
       try {
-        const { token } = await getWebRTCToken();
-        if (!token) {
-          throw new Error("Server did not return a token");
-        }
+        const { token } = await getWebRTCToken(currentAgentId);
+        if (!token) throw new Error("Server did not return a token");
         log2("Fetched WebRTC token");
         setStatus("connecting via WebRTC");
         conversation = await N.startSession({
@@ -25253,7 +25363,7 @@ var require_app = __commonJS({
             log2(`Mode: ${mode.mode}`);
           },
           onStatusChange: (status) => {
-            log2(`Status changed: ${status.status}`);
+            log2(`Status: ${status.status}`);
           }
         });
         log2(`Conversation started: ${conversation.getId()}`);
@@ -25264,8 +25374,8 @@ var require_app = __commonJS({
         startBtn.disabled = false;
         stopBtn.disabled = true;
       }
-    };
-    var stopCall = async () => {
+    }
+    async function stopCall() {
       stopBtn.disabled = true;
       setStatus("disconnecting");
       if (conversation) {
@@ -25279,7 +25389,7 @@ var require_app = __commonJS({
       log2("Conversation stopped");
       setStatus("idle");
       startBtn.disabled = false;
-    };
+    }
     startBtn.addEventListener("click", () => {
       setStatus("starting");
       startCall();
@@ -25292,6 +25402,7 @@ var require_app = __commonJS({
         conversation.endSession();
       }
     });
+    loadVoices();
   }
 });
 export default require_app();
