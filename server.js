@@ -62,94 +62,7 @@ app.get("/api/voices", async (req, res) => {
   }
 });
 
-// Create a new agent
-app.post("/api/agents", async (req, res) => {
-  try {
-    if (!ELEVEN_API_KEY) {
-      return res.status(500).json({ error: "Server missing ElevenLabs API key" });
-    }
-
-    const { name, prompt, firstMessage, voiceId, language } = req.body;
-
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt is required" });
-    }
-
-    const agentConfig = {
-      name: name || "Custom Agent",
-      conversation_config: {
-        agent: {
-          prompt: {
-            prompt: prompt,
-            llm: "gemini-2.0-flash-001",
-            temperature: 0.7,
-          },
-          first_message: firstMessage || "",
-          language: language || "en",
-        },
-        tts: {
-          voice_id: voiceId || "cjVigY5qzO86Huf0OWal", // Default voice
-          model_id: "eleven_turbo_v2",
-        },
-      },
-    };
-
-    const response = await fetch("https://api.elevenlabs.io/v1/convai/agents/create", {
-      method: "POST",
-      headers: {
-        "xi-api-key": ELEVEN_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(agentConfig),
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      return res.status(response.status).json({
-        error: "Failed to create agent",
-        details: safeJsonParse(errorBody),
-      });
-    }
-
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error("Error creating agent", error);
-    res.status(500).json({ error: "Unexpected error creating agent" });
-  }
-});
-
-// List user's agents
-app.get("/api/agents", async (req, res) => {
-  try {
-    if (!ELEVEN_API_KEY) {
-      return res.status(500).json({ error: "Server missing ElevenLabs API key" });
-    }
-
-    const response = await fetch("https://api.elevenlabs.io/v1/convai/agents", {
-      method: "GET",
-      headers: {
-        "xi-api-key": ELEVEN_API_KEY,
-      },
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      return res.status(response.status).json({
-        error: "Failed to fetch agents",
-        details: safeJsonParse(errorBody),
-      });
-    }
-
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error("Error fetching agents", error);
-    res.status(500).json({ error: "Unexpected error fetching agents" });
-  }
-});
-
-// Get a single agent's details
+// Get a single agent's details (must be before /api/agents to match correctly)
 app.get("/api/agents/:agentId", async (req, res) => {
   try {
     if (!ELEVEN_API_KEY) {
@@ -282,6 +195,93 @@ app.delete("/api/agents/:agentId", async (req, res) => {
   } catch (error) {
     console.error("Error deleting agent", error);
     res.status(500).json({ error: "Unexpected error deleting agent" });
+  }
+});
+
+// List user's agents
+app.get("/api/agents", async (req, res) => {
+  try {
+    if (!ELEVEN_API_KEY) {
+      return res.status(500).json({ error: "Server missing ElevenLabs API key" });
+    }
+
+    const response = await fetch("https://api.elevenlabs.io/v1/convai/agents", {
+      method: "GET",
+      headers: {
+        "xi-api-key": ELEVEN_API_KEY,
+      },
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      return res.status(response.status).json({
+        error: "Failed to fetch agents",
+        details: safeJsonParse(errorBody),
+      });
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error("Error fetching agents", error);
+    res.status(500).json({ error: "Unexpected error fetching agents" });
+  }
+});
+
+// Create a new agent
+app.post("/api/agents", async (req, res) => {
+  try {
+    if (!ELEVEN_API_KEY) {
+      return res.status(500).json({ error: "Server missing ElevenLabs API key" });
+    }
+
+    const { name, prompt, firstMessage, voiceId, language } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+
+    const agentConfig = {
+      name: name || "Custom Agent",
+      conversation_config: {
+        agent: {
+          prompt: {
+            prompt: prompt,
+            llm: "gemini-2.0-flash-001",
+            temperature: 0.7,
+          },
+          first_message: firstMessage || "",
+          language: language || "en",
+        },
+        tts: {
+          voice_id: voiceId || "cjVigY5qzO86Huf0OWal", // Default voice
+          model_id: "eleven_turbo_v2",
+        },
+      },
+    };
+
+    const response = await fetch("https://api.elevenlabs.io/v1/convai/agents/create", {
+      method: "POST",
+      headers: {
+        "xi-api-key": ELEVEN_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(agentConfig),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      return res.status(response.status).json({
+        error: "Failed to create agent",
+        details: safeJsonParse(errorBody),
+      });
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error("Error creating agent", error);
+    res.status(500).json({ error: "Unexpected error creating agent" });
   }
 });
 
