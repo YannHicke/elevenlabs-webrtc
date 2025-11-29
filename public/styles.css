@@ -152,6 +152,142 @@ input:focus, textarea:focus, select:focus {
   color: #fff;
 }
 
+.btn-browse {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-browse:hover:not(:disabled) {
+  transform: none;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+/* Voice Library Modal */
+.modal-large {
+  max-width: 800px;
+}
+
+.voice-library-content {
+  padding: 1.5rem;
+}
+
+.voice-search {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.voice-search input {
+  flex: 1;
+}
+
+.voice-search select {
+  width: 140px;
+}
+
+.voice-search button {
+  padding: 0.65rem 1.25rem;
+}
+
+.voice-suggestions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+
+.chip {
+  background: #f3f4f6;
+  color: #374151;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.chip:hover {
+  background: #e5e7eb;
+  transform: none;
+  box-shadow: none;
+}
+
+.voice-library-results {
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.voice-library-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.voice-library-card:hover {
+  border-color: #4338ca;
+  background: #f5f3ff;
+}
+
+.voice-library-info {
+  flex: 1;
+}
+
+.voice-library-info h4 {
+  margin: 0 0 0.25rem;
+  color: #1e293b;
+}
+
+.voice-library-info p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.voice-library-info .voice-meta {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.voice-library-info .voice-tag {
+  background: #e0e7ff;
+  color: #4338ca;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.voice-library-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.voice-library-actions button {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+}
+
 textarea {
   resize: vertical;
   min-height: 100px;

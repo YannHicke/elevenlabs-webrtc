@@ -25,7 +25,7 @@ app.get("/api/config", (req, res) => {
   });
 });
 
-// List available voices
+// List available voices (user's own voices)
 app.get("/api/voices", async (req, res) => {
   try {
     if (!ELEVEN_API_KEY) {
@@ -60,6 +60,96 @@ app.get("/api/voices", async (req, res) => {
   } catch (error) {
     console.error("Error fetching voices", error);
     res.status(500).json({ error: "Unexpected error fetching voices" });
+  }
+});
+
+// Search the Voice Library (shared/community voices)
+app.get("/api/voice-library", async (req, res) => {
+  try {
+    if (!ELEVEN_API_KEY) {
+      return res.status(500).json({ error: "Server missing ElevenLabs API key" });
+    }
+
+    const { search, gender, age, category, page_size = 30 } = req.query;
+    
+    const url = new URL("https://api.elevenlabs.io/v1/shared-voices");
+    url.searchParams.set("page_size", page_size);
+    if (search) url.searchParams.set("search", search);
+    if (gender) url.searchParams.set("gender", gender);
+    if (age) url.searchParams.set("age", age);
+    if (category) url.searchParams.set("category", category);
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "xi-api-key": ELEVEN_API_KEY,
+      },
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      return res.status(response.status).json({
+        error: "Failed to search voice library",
+        details: safeJsonParse(errorBody),
+      });
+    }
+
+    const data = await response.json();
+    // Return simplified voice list
+    const voices = (data.voices || []).map(v => ({
+      voice_id: v.voice_id,
+      public_owner_id: v.public_owner_id,
+      name: v.name,
+      category: v.category,
+      labels: v.labels || {},
+      description: v.description,
+      preview_url: v.preview_url,
+      usage_character_count_1y: v.usage_character_count_1y,
+    }));
+    res.json({ voices, has_more: data.has_more });
+  } catch (error) {
+    console.error("Error searching voice library", error);
+    res.status(500).json({ error: "Unexpected error searching voice library" });
+  }
+});
+
+// Add a shared voice to user's library
+app.post("/api/voice-library/add", async (req, res) => {
+  try {
+    if (!ELEVEN_API_KEY) {
+      return res.status(500).json({ error: "Server missing ElevenLabs API key" });
+    }
+
+    const { public_owner_id, voice_id, name } = req.body;
+    
+    if (!public_owner_id || !voice_id) {
+      return res.status(400).json({ error: "public_owner_id and voice_id are required" });
+    }
+
+    const url = `https://api.elevenlabs.io/v1/voices/add/${public_owner_id}/${voice_id}`;
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "xi-api-key": ELEVEN_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: name || undefined }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      return res.status(response.status).json({
+        error: "Failed to add voice",
+        details: safeJsonParse(errorBody),
+      });
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error("Error adding shared voice", error);
+    res.status(500).json({ error: "Unexpected error adding voice" });
   }
 });
 

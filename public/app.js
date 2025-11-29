@@ -25210,10 +25210,19 @@ var require_app = __commonJS({
     var deleteAgentBtn = document.getElementById("delete-agent-btn");
     var previewVoiceBtn = document.getElementById("preview-voice-btn");
     var editPreviewVoiceBtn = document.getElementById("edit-preview-voice-btn");
+    var browseVoicesBtn = document.getElementById("browse-voices-btn");
+    var voiceLibraryModal = document.getElementById("voice-library-modal");
+    var voiceSearchInput = document.getElementById("voice-search-input");
+    var voiceGenderFilter = document.getElementById("voice-gender-filter");
+    var voiceSearchBtn = document.getElementById("voice-search-btn");
+    var voiceLibraryResults = document.getElementById("voice-library-results");
+    var voiceSuggestionChips = document.querySelectorAll(".chip[data-search]");
     var conversation = null;
     var currentAgentId = null;
     var voicesCache = null;
+    var libraryVoicesCache = null;
     var previewAudio = null;
+    var targetVoiceSelect = null;
     var log2 = (message) => {
       const entry = document.createElement("div");
       entry.className = "log-entry";
@@ -25295,6 +25304,149 @@ var require_app = __commonJS({
       const voiceId = editVoiceSelect.value;
       if (voiceId) {
         playVoicePreview(voiceId, editPreviewVoiceBtn);
+      }
+    });
+    var editBrowseVoicesBtn = document.getElementById("edit-browse-voices-btn");
+    browseVoicesBtn.addEventListener("click", () => {
+      targetVoiceSelect = voiceSelect;
+      openVoiceLibrary();
+    });
+    editBrowseVoicesBtn.addEventListener("click", () => {
+      targetVoiceSelect = editVoiceSelect;
+      openVoiceLibrary();
+    });
+    function openVoiceLibrary() {
+      voiceLibraryModal.classList.remove("hidden");
+      voiceSearchInput.value = "";
+      voiceLibraryResults.innerHTML = "<p>Search for voices above to browse the library.</p>";
+    }
+    window.closeVoiceLibrary = function() {
+      voiceLibraryModal.classList.add("hidden");
+      stopPreview();
+    };
+    function stopPreview() {
+      if (previewAudio) {
+        previewAudio.pause();
+        previewAudio = null;
+        document.querySelectorAll(".btn-preview, .btn-preview-lib").forEach((btn) => {
+          btn.classList.remove("playing");
+          btn.textContent = "\u25B6";
+        });
+      }
+    }
+    async function searchVoiceLibrary(searchTerm, gender) {
+      voiceLibraryResults.innerHTML = "<p>Searching...</p>";
+      try {
+        const params = new URLSearchParams();
+        if (searchTerm) params.set("search", searchTerm);
+        if (gender) params.set("gender", gender);
+        params.set("page_size", "30");
+        const response = await fetch(`/api/voice-library?${params}`);
+        if (!response.ok) throw new Error("Failed to search");
+        const { voices } = await response.json();
+        libraryVoicesCache = voices;
+        if (voices.length === 0) {
+          voiceLibraryResults.innerHTML = "<p>No voices found. Try a different search term.</p>";
+          return;
+        }
+        voiceLibraryResults.innerHTML = voices.map((v2) => `
+      <div class="voice-library-card">
+        <div class="voice-library-info">
+          <h4>${escapeHtml(v2.name)}</h4>
+          <p>${escapeHtml(v2.description || "No description")}</p>
+          <div class="voice-meta">
+            ${v2.category ? `<span class="voice-tag">${v2.category}</span>` : ""}
+            ${v2.labels?.gender ? `<span class="voice-tag">${v2.labels.gender}</span>` : ""}
+            ${v2.labels?.age ? `<span class="voice-tag">${v2.labels.age}</span>` : ""}
+            ${v2.labels?.accent ? `<span class="voice-tag">${v2.labels.accent}</span>` : ""}
+          </div>
+        </div>
+        <div class="voice-library-actions">
+          <button class="btn-preview btn-preview-lib" onclick="window.previewLibraryVoice('${v2.voice_id}', this)">\u25B6</button>
+          <button onclick="window.addVoiceFromLibrary('${v2.public_owner_id}', '${v2.voice_id}', '${escapeHtml(v2.name).replace(/'/g, "\\'")}')">
+            Add
+          </button>
+        </div>
+      </div>
+    `).join("");
+      } catch (error) {
+        console.error("Error searching voice library:", error);
+        voiceLibraryResults.innerHTML = "<p>Failed to search. Please try again.</p>";
+      }
+    }
+    function escapeHtml(text) {
+      if (!text) return "";
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    window.previewLibraryVoice = function(voiceId, button) {
+      stopPreview();
+      const voice = libraryVoicesCache?.find((v2) => v2.voice_id === voiceId);
+      if (!voice?.preview_url) {
+        alert("No preview available for this voice");
+        return;
+      }
+      previewAudio = new Audio(voice.preview_url);
+      button.classList.add("playing");
+      button.textContent = "\u25A0";
+      previewAudio.play().catch((error) => {
+        console.error("Error playing preview:", error);
+        button.classList.remove("playing");
+        button.textContent = "\u25B6";
+      });
+      previewAudio.onended = () => {
+        button.classList.remove("playing");
+        button.textContent = "\u25B6";
+        previewAudio = null;
+      };
+    };
+    window.addVoiceFromLibrary = async function(publicOwnerId, voiceId, voiceName) {
+      if (!confirm(`Add "${voiceName}" to your voice library?`)) return;
+      try {
+        const response = await fetch("/api/voice-library/add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            public_owner_id: publicOwnerId,
+            voice_id: voiceId,
+            name: voiceName
+          })
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.details?.detail?.message || error.error || "Failed to add voice");
+        }
+        const result = await response.json();
+        alert(`Voice "${voiceName}" added successfully!`);
+        await loadVoices();
+        if (targetVoiceSelect && result.voice_id) {
+          targetVoiceSelect.value = result.voice_id;
+        }
+        window.closeVoiceLibrary();
+      } catch (error) {
+        console.error("Error adding voice:", error);
+        alert(`Failed to add voice: ${error.message}`);
+      }
+    };
+    voiceSearchBtn.addEventListener("click", () => {
+      searchVoiceLibrary(voiceSearchInput.value.trim(), voiceGenderFilter.value);
+    });
+    voiceSearchInput.addEventListener("keypress", (e2) => {
+      if (e2.key === "Enter") {
+        searchVoiceLibrary(voiceSearchInput.value.trim(), voiceGenderFilter.value);
+      }
+    });
+    voiceSuggestionChips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const searchTerm = chip.dataset.search;
+        voiceSearchInput.value = searchTerm;
+        searchVoiceLibrary(searchTerm, voiceGenderFilter.value);
+      });
+    });
+    voiceLibraryModal.addEventListener("click", (e2) => {
+      if (e2.target === voiceLibraryModal) {
+        window.closeVoiceLibrary();
       }
     });
     async function loadAgents() {
@@ -25444,8 +25596,12 @@ var require_app = __commonJS({
       }
     });
     document.addEventListener("keydown", (e2) => {
-      if (e2.key === "Escape" && !editModal.classList.contains("hidden")) {
-        window.closeEditModal();
+      if (e2.key === "Escape") {
+        if (!voiceLibraryModal.classList.contains("hidden")) {
+          window.closeVoiceLibrary();
+        } else if (!editModal.classList.contains("hidden")) {
+          window.closeEditModal();
+        }
       }
     });
     agentForm.addEventListener("submit", async (e2) => {

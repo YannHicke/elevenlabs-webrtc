@@ -33,11 +33,22 @@ const deleteAgentBtn = document.getElementById("delete-agent-btn");
 // Voice preview buttons
 const previewVoiceBtn = document.getElementById("preview-voice-btn");
 const editPreviewVoiceBtn = document.getElementById("edit-preview-voice-btn");
+const browseVoicesBtn = document.getElementById("browse-voices-btn");
+
+// Voice library modal
+const voiceLibraryModal = document.getElementById("voice-library-modal");
+const voiceSearchInput = document.getElementById("voice-search-input");
+const voiceGenderFilter = document.getElementById("voice-gender-filter");
+const voiceSearchBtn = document.getElementById("voice-search-btn");
+const voiceLibraryResults = document.getElementById("voice-library-results");
+const voiceSuggestionChips = document.querySelectorAll(".chip[data-search]");
 
 let conversation = null;
 let currentAgentId = null;
 let voicesCache = null;
+let libraryVoicesCache = null;
 let previewAudio = null;
+let targetVoiceSelect = null; // Track which select to update
 
 // Utility functions
 const log = (message) => {
@@ -144,6 +155,183 @@ editPreviewVoiceBtn.addEventListener("click", () => {
   const voiceId = editVoiceSelect.value;
   if (voiceId) {
     playVoicePreview(voiceId, editPreviewVoiceBtn);
+  }
+});
+
+// Voice Library functions
+const editBrowseVoicesBtn = document.getElementById("edit-browse-voices-btn");
+
+browseVoicesBtn.addEventListener("click", () => {
+  targetVoiceSelect = voiceSelect;
+  openVoiceLibrary();
+});
+
+editBrowseVoicesBtn.addEventListener("click", () => {
+  targetVoiceSelect = editVoiceSelect;
+  openVoiceLibrary();
+});
+
+function openVoiceLibrary() {
+  voiceLibraryModal.classList.remove("hidden");
+  voiceSearchInput.value = "";
+  voiceLibraryResults.innerHTML = '<p>Search for voices above to browse the library.</p>';
+}
+
+window.closeVoiceLibrary = function() {
+  voiceLibraryModal.classList.add("hidden");
+  stopPreview();
+};
+
+function stopPreview() {
+  if (previewAudio) {
+    previewAudio.pause();
+    previewAudio = null;
+    document.querySelectorAll('.btn-preview, .btn-preview-lib').forEach(btn => {
+      btn.classList.remove('playing');
+      btn.textContent = '▶';
+    });
+  }
+}
+
+async function searchVoiceLibrary(searchTerm, gender) {
+  voiceLibraryResults.innerHTML = '<p>Searching...</p>';
+  
+  try {
+    const params = new URLSearchParams();
+    if (searchTerm) params.set("search", searchTerm);
+    if (gender) params.set("gender", gender);
+    params.set("page_size", "30");
+    
+    const response = await fetch(`/api/voice-library?${params}`);
+    if (!response.ok) throw new Error("Failed to search");
+    
+    const { voices } = await response.json();
+    libraryVoicesCache = voices;
+    
+    if (voices.length === 0) {
+      voiceLibraryResults.innerHTML = '<p>No voices found. Try a different search term.</p>';
+      return;
+    }
+    
+    voiceLibraryResults.innerHTML = voices.map(v => `
+      <div class="voice-library-card">
+        <div class="voice-library-info">
+          <h4>${escapeHtml(v.name)}</h4>
+          <p>${escapeHtml(v.description || 'No description')}</p>
+          <div class="voice-meta">
+            ${v.category ? `<span class="voice-tag">${v.category}</span>` : ''}
+            ${v.labels?.gender ? `<span class="voice-tag">${v.labels.gender}</span>` : ''}
+            ${v.labels?.age ? `<span class="voice-tag">${v.labels.age}</span>` : ''}
+            ${v.labels?.accent ? `<span class="voice-tag">${v.labels.accent}</span>` : ''}
+          </div>
+        </div>
+        <div class="voice-library-actions">
+          <button class="btn-preview btn-preview-lib" onclick="window.previewLibraryVoice('${v.voice_id}', this)">▶</button>
+          <button onclick="window.addVoiceFromLibrary('${v.public_owner_id}', '${v.voice_id}', '${escapeHtml(v.name).replace(/'/g, "\\'")}')">
+            Add
+          </button>
+        </div>
+      </div>
+    `).join("");
+    
+  } catch (error) {
+    console.error("Error searching voice library:", error);
+    voiceLibraryResults.innerHTML = '<p>Failed to search. Please try again.</p>';
+  }
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+window.previewLibraryVoice = function(voiceId, button) {
+  stopPreview();
+  
+  const voice = libraryVoicesCache?.find(v => v.voice_id === voiceId);
+  if (!voice?.preview_url) {
+    alert("No preview available for this voice");
+    return;
+  }
+  
+  previewAudio = new Audio(voice.preview_url);
+  button.classList.add('playing');
+  button.textContent = '■';
+  
+  previewAudio.play().catch(error => {
+    console.error("Error playing preview:", error);
+    button.classList.remove('playing');
+    button.textContent = '▶';
+  });
+  
+  previewAudio.onended = () => {
+    button.classList.remove('playing');
+    button.textContent = '▶';
+    previewAudio = null;
+  };
+};
+
+window.addVoiceFromLibrary = async function(publicOwnerId, voiceId, voiceName) {
+  if (!confirm(`Add "${voiceName}" to your voice library?`)) return;
+  
+  try {
+    const response = await fetch("/api/voice-library/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        public_owner_id: publicOwnerId,
+        voice_id: voiceId,
+        name: voiceName,
+      }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.details?.detail?.message || error.error || "Failed to add voice");
+    }
+    
+    const result = await response.json();
+    alert(`Voice "${voiceName}" added successfully!`);
+    
+    // Reload voices and select the new one
+    await loadVoices();
+    if (targetVoiceSelect && result.voice_id) {
+      targetVoiceSelect.value = result.voice_id;
+    }
+    
+    window.closeVoiceLibrary();
+    
+  } catch (error) {
+    console.error("Error adding voice:", error);
+    alert(`Failed to add voice: ${error.message}`);
+  }
+};
+
+// Voice search handlers
+voiceSearchBtn.addEventListener("click", () => {
+  searchVoiceLibrary(voiceSearchInput.value.trim(), voiceGenderFilter.value);
+});
+
+voiceSearchInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") {
+    searchVoiceLibrary(voiceSearchInput.value.trim(), voiceGenderFilter.value);
+  }
+});
+
+voiceSuggestionChips.forEach(chip => {
+  chip.addEventListener("click", () => {
+    const searchTerm = chip.dataset.search;
+    voiceSearchInput.value = searchTerm;
+    searchVoiceLibrary(searchTerm, voiceGenderFilter.value);
+  });
+});
+
+// Close voice library on backdrop click
+voiceLibraryModal.addEventListener("click", (e) => {
+  if (e.target === voiceLibraryModal) {
+    window.closeVoiceLibrary();
   }
 });
 
@@ -336,8 +524,12 @@ editModal.addEventListener("click", (e) => {
 
 // Close modal on Escape key
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !editModal.classList.contains("hidden")) {
-    window.closeEditModal();
+  if (e.key === "Escape") {
+    if (!voiceLibraryModal.classList.contains("hidden")) {
+      window.closeVoiceLibrary();
+    } else if (!editModal.classList.contains("hidden")) {
+      window.closeEditModal();
+    }
   }
 });
 

@@ -35,19 +35,22 @@
             <input type="text" id="first-message" placeholder="Hello Doctor, What do you want?" />
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label for="voice-select">Voice</label>
-              <div class="voice-select-wrapper">
-                <select id="voice-select">
-                  <option value="">Loading voices...</option>
-                </select>
-                <button type="button" class="btn-preview" id="preview-voice-btn" title="Preview voice">
-                  ▶
-                </button>
-              </div>
+          <div class="form-group">
+            <label for="voice-select">Voice</label>
+            <div class="voice-select-wrapper">
+              <select id="voice-select">
+                <option value="">Loading voices...</option>
+              </select>
+              <button type="button" class="btn-preview" id="preview-voice-btn" title="Preview voice">
+                ▶
+              </button>
+              <button type="button" class="btn-browse" id="browse-voices-btn" title="Browse Voice Library">
+                🔍
+              </button>
             </div>
+          </div>
 
+          <div class="form-row">
             <div class="form-group">
               <label for="language-select">Language</label>
               <select id="language-select">
@@ -78,6 +81,40 @@
         </div>
       </section>
 
+      <!-- Voice Library Modal -->
+      <div id="voice-library-modal" class="modal hidden">
+        <div class="modal-content modal-large">
+          <div class="modal-header">
+            <h2>🎤 Voice Library</h2>
+            <button class="modal-close" onclick="window.closeVoiceLibrary()">&times;</button>
+          </div>
+          <div class="voice-library-content">
+            <div class="voice-search">
+              <input type="text" id="voice-search-input" placeholder="Search voices (e.g., child, kid, boy, girl)..." />
+              <select id="voice-gender-filter">
+                <option value="">All Genders</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="neutral">Neutral</option>
+              </select>
+              <button type="button" id="voice-search-btn">Search</button>
+            </div>
+            <div class="voice-suggestions">
+              Quick: 
+              <button type="button" class="chip" data-search="child">Child</button>
+              <button type="button" class="chip" data-search="kid">Kid</button>
+              <button type="button" class="chip" data-search="boy">Boy</button>
+              <button type="button" class="chip" data-search="girl">Girl</button>
+              <button type="button" class="chip" data-search="teen">Teen</button>
+              <button type="button" class="chip" data-search="young">Young</button>
+            </div>
+            <div id="voice-library-results" class="voice-library-results">
+              <p>Search for voices above to browse the library.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Edit Agent Modal -->
       <div id="edit-modal" class="modal hidden">
         <div class="modal-content">
@@ -103,19 +140,22 @@
               <input type="text" id="edit-first-message" placeholder="Hello! How can I help you today?" />
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label for="edit-voice-select">Voice</label>
-                <div class="voice-select-wrapper">
-                  <select id="edit-voice-select">
-                    <option value="">Loading voices...</option>
-                  </select>
-                  <button type="button" class="btn-preview" id="edit-preview-voice-btn" title="Preview voice">
-                    ▶
-                  </button>
-                </div>
+            <div class="form-group">
+              <label for="edit-voice-select">Voice</label>
+              <div class="voice-select-wrapper">
+                <select id="edit-voice-select">
+                  <option value="">Loading voices...</option>
+                </select>
+                <button type="button" class="btn-preview" id="edit-preview-voice-btn" title="Preview voice">
+                  ▶
+                </button>
+                <button type="button" class="btn-browse" id="edit-browse-voices-btn" title="Browse Voice Library">
+                  🔍
+                </button>
               </div>
+            </div>
 
+            <div class="form-row">
               <div class="form-group">
                 <label for="edit-language-select">Language</label>
                 <select id="edit-language-select">
