@@ -25208,9 +25208,12 @@ var require_app = __commonJS({
     var editLanguageSelect = document.getElementById("edit-language-select");
     var saveAgentBtn = document.getElementById("save-agent-btn");
     var deleteAgentBtn = document.getElementById("delete-agent-btn");
+    var previewVoiceBtn = document.getElementById("preview-voice-btn");
+    var editPreviewVoiceBtn = document.getElementById("edit-preview-voice-btn");
     var conversation = null;
     var currentAgentId = null;
     var voicesCache = null;
+    var previewAudio = null;
     var log2 = (message) => {
       const entry = document.createElement("div");
       entry.className = "log-entry";
@@ -25249,6 +25252,51 @@ var require_app = __commonJS({
         editVoiceSelect.innerHTML = '<option value="">Failed to load voices</option>';
       }
     }
+    function getVoicePreviewUrl(voiceId) {
+      if (!voicesCache) return null;
+      const voice = voicesCache.find((v2) => v2.voice_id === voiceId);
+      return voice?.preview_url || null;
+    }
+    function playVoicePreview(voiceId, button) {
+      if (previewAudio) {
+        previewAudio.pause();
+        previewAudio = null;
+        document.querySelectorAll(".btn-preview").forEach((btn) => {
+          btn.classList.remove("playing");
+          btn.textContent = "\u25B6";
+        });
+      }
+      const previewUrl = getVoicePreviewUrl(voiceId);
+      if (!previewUrl) {
+        alert("No preview available for this voice");
+        return;
+      }
+      previewAudio = new Audio(previewUrl);
+      button.classList.add("playing");
+      button.textContent = "\u25A0";
+      previewAudio.play().catch((error) => {
+        console.error("Error playing preview:", error);
+        button.classList.remove("playing");
+        button.textContent = "\u25B6";
+      });
+      previewAudio.onended = () => {
+        button.classList.remove("playing");
+        button.textContent = "\u25B6";
+        previewAudio = null;
+      };
+    }
+    previewVoiceBtn.addEventListener("click", () => {
+      const voiceId = voiceSelect.value;
+      if (voiceId) {
+        playVoicePreview(voiceId, previewVoiceBtn);
+      }
+    });
+    editPreviewVoiceBtn.addEventListener("click", () => {
+      const voiceId = editVoiceSelect.value;
+      if (voiceId) {
+        playVoicePreview(voiceId, editPreviewVoiceBtn);
+      }
+    });
     async function loadAgents() {
       try {
         agentsList.innerHTML = "<p>Loading agents...</p>";
@@ -25316,6 +25364,14 @@ var require_app = __commonJS({
     };
     window.closeEditModal = function() {
       editModal.classList.add("hidden");
+      if (previewAudio) {
+        previewAudio.pause();
+        previewAudio = null;
+        document.querySelectorAll(".btn-preview").forEach((btn) => {
+          btn.classList.remove("playing");
+          btn.textContent = "\u25B6";
+        });
+      }
     };
     editForm.addEventListener("submit", async (e2) => {
       e2.preventDefault();

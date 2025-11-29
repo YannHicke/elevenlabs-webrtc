@@ -116,6 +116,42 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1);
 }
 
+/* Voice select with preview button */
+.voice-select-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.voice-select-wrapper select {
+  flex: 1;
+}
+
+.btn-preview {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  background: #f3f4f6;
+  color: #374151;
+  border-radius: 8px;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-preview:hover:not(:disabled) {
+  background: #e5e7eb;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-preview.playing {
+  background: #4338ca;
+  color: #fff;
+}
+
 textarea {
   resize: vertical;
   min-height: 100px;

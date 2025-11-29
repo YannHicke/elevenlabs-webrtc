@@ -48,12 +48,13 @@ app.get("/api/voices", async (req, res) => {
     }
 
     const data = await response.json();
-    // Return simplified voice list
+    // Return simplified voice list with preview URL
     const voices = data.voices.map(v => ({
       voice_id: v.voice_id,
       name: v.name,
       category: v.category,
       labels: v.labels,
+      preview_url: v.preview_url,
     }));
     res.json({ voices });
   } catch (error) {

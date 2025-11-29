@@ -30,9 +30,14 @@ const editLanguageSelect = document.getElementById("edit-language-select");
 const saveAgentBtn = document.getElementById("save-agent-btn");
 const deleteAgentBtn = document.getElementById("delete-agent-btn");
 
+// Voice preview buttons
+const previewVoiceBtn = document.getElementById("preview-voice-btn");
+const editPreviewVoiceBtn = document.getElementById("edit-preview-voice-btn");
+
 let conversation = null;
 let currentAgentId = null;
 let voicesCache = null;
+let previewAudio = null;
 
 // Utility functions
 const log = (message) => {
@@ -84,6 +89,63 @@ async function loadVoices() {
     editVoiceSelect.innerHTML = '<option value="">Failed to load voices</option>';
   }
 }
+
+// Get preview URL for a voice
+function getVoicePreviewUrl(voiceId) {
+  if (!voicesCache) return null;
+  const voice = voicesCache.find(v => v.voice_id === voiceId);
+  return voice?.preview_url || null;
+}
+
+// Play voice preview
+function playVoicePreview(voiceId, button) {
+  // Stop any currently playing preview
+  if (previewAudio) {
+    previewAudio.pause();
+    previewAudio = null;
+    document.querySelectorAll('.btn-preview').forEach(btn => {
+      btn.classList.remove('playing');
+      btn.textContent = '▶';
+    });
+  }
+  
+  const previewUrl = getVoicePreviewUrl(voiceId);
+  if (!previewUrl) {
+    alert("No preview available for this voice");
+    return;
+  }
+  
+  previewAudio = new Audio(previewUrl);
+  button.classList.add('playing');
+  button.textContent = '■';
+  
+  previewAudio.play().catch(error => {
+    console.error("Error playing preview:", error);
+    button.classList.remove('playing');
+    button.textContent = '▶';
+  });
+  
+  previewAudio.onended = () => {
+    button.classList.remove('playing');
+    button.textContent = '▶';
+    previewAudio = null;
+  };
+}
+
+// Preview button click handlers
+previewVoiceBtn.addEventListener("click", () => {
+  const voiceId = voiceSelect.value;
+  if (voiceId) {
+    playVoicePreview(voiceId, previewVoiceBtn);
+  }
+});
+
+editPreviewVoiceBtn.addEventListener("click", () => {
+  const voiceId = editVoiceSelect.value;
+  if (voiceId) {
+    playVoicePreview(voiceId, editPreviewVoiceBtn);
+  }
+});
 
 // Load existing agents
 async function loadAgents() {
@@ -170,6 +232,15 @@ window.editAgent = async function(agentId) {
 // Close edit modal
 window.closeEditModal = function() {
   editModal.classList.add("hidden");
+  // Stop any playing preview
+  if (previewAudio) {
+    previewAudio.pause();
+    previewAudio = null;
+    document.querySelectorAll('.btn-preview').forEach(btn => {
+      btn.classList.remove('playing');
+      btn.textContent = '▶';
+    });
+  }
 };
 
 // Save agent changes

@@ -39,9 +39,14 @@
           <div class="form-row">
             <div class="form-group">
               <label for="voice-select">Voice</label>
-              <select id="voice-select">
-                <option value="">Loading voices...</option>
-              </select>
+              <div class="voice-select-wrapper">
+                <select id="voice-select">
+                  <option value="">Loading voices...</option>
+                </select>
+                <button type="button" class="btn-preview" id="preview-voice-btn" title="Preview voice">
+                  ▶
+                </button>
+              </div>
             </div>
 
             <div class="form-group">
@@ -102,9 +107,14 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="edit-voice-select">Voice</label>
-                <select id="edit-voice-select">
-                  <option value="">Loading voices...</option>
-                </select>
+                <div class="voice-select-wrapper">
+                  <select id="edit-voice-select">
+                    <option value="">Loading voices...</option>
+                  </select>
+                  <button type="button" class="btn-preview" id="edit-preview-voice-btn" title="Preview voice">
+                    ▶
+                  </button>
+                </div>
               </div>
 
               <div class="form-group">
