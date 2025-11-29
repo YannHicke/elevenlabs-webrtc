@@ -3,13 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ElevenLabs Agent Builder</title>
+    <title>MedSimAI Patient Builder</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main>
-      <h1>ElevenLabs Agent Builder</h1>
-      <p>Create your own AI voice agent and start a conversation.</p>
+      <h1>MedSimAI Patient Builder</h1>
 
       <!-- Tab Navigation -->
       <div class="tabs">
@@ -19,21 +18,21 @@
 
       <!-- Create Agent Tab -->
       <section id="create-tab" class="tab-content active">
-        <h2>Create New Agent</h2>
+        <h2>Create New Patient</h2>
         <form id="agent-form">
           <div class="form-group">
-            <label for="agent-name">Agent Name</label>
-            <input type="text" id="agent-name" placeholder="My Custom Agent" />
+            <label for="agent-name">Patient Name</label>
+            <input type="text" id="agent-name" placeholder="My Custom Patient" />
           </div>
 
           <div class="form-group">
-            <label for="agent-prompt">System Prompt *</label>
-            <textarea id="agent-prompt" rows="6" placeholder="You are a helpful assistant. Be friendly and concise in your responses."></textarea>
+            <label for="agent-prompt">Patient History *</label>
+            <textarea id="agent-prompt" rows="6" placeholder="Patient history, medical history, medications, allergies, etc."></textarea>
           </div>
 
           <div class="form-group">
-            <label for="first-message">First Message (optional)</label>
-            <input type="text" id="first-message" placeholder="Hello! How can I help you today?" />
+            <label for="first-message">Patient Goals (optional)</label>
+            <input type="text" id="first-message" placeholder="Hello Doctor, What do you want?" />
           </div>
 
           <div class="form-row">
@@ -67,15 +66,15 @@
             </div>
           </div>
 
-          <button type="submit" id="create-agent-btn">Create Agent</button>
+          <button type="submit" id="create-agent-btn">Create Patient</button>
         </form>
       </section>
 
       <!-- Existing Agents Tab -->
       <section id="existing-tab" class="tab-content">
-        <h2>Your Agents</h2>
+        <h2>Your Patients</h2>
         <div id="agents-list" class="agents-list">
-          <p>Loading agents...</p>
+          <p>Loading patients...</p>
         </div>
       </section>
 
@@ -83,14 +82,14 @@
       <div id="edit-modal" class="modal hidden">
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Edit Agent</h2>
+            <h2>Edit Patient</h2>
             <button class="modal-close" onclick="window.closeEditModal()">&times;</button>
           </div>
           <form id="edit-form">
             <input type="hidden" id="edit-agent-id" />
             
             <div class="form-group">
-              <label for="edit-agent-name">Agent Name</label>
+              <label for="edit-agent-name">Patient Name</label>
               <input type="text" id="edit-agent-name" placeholder="My Custom Agent" />
             </div>
 
