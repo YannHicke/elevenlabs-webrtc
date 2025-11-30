@@ -327,7 +327,7 @@ app.post("/api/agents", async (req, res) => {
       return res.status(500).json({ error: "Server missing ElevenLabs API key" });
     }
 
-    const { name, prompt, firstMessage, voiceId, language } = req.body;
+    const { name, prompt, firstMessage, first_message, voiceId, voice_id, language, workflow } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: "Prompt is required" });
@@ -342,15 +342,20 @@ app.post("/api/agents", async (req, res) => {
             llm: "gemini-2.0-flash-001",
             temperature: 0.7,
           },
-          first_message: firstMessage || "",
+          first_message: firstMessage || first_message || "",
           language: language || "en",
         },
         tts: {
-          voice_id: voiceId || "cjVigY5qzO86Huf0OWal", // Default voice
+          voice_id: voiceId || voice_id || "cjVigY5qzO86Huf0OWal", // Default voice
           model_id: "eleven_turbo_v2",
         },
       },
     };
+
+    // Add workflow if provided
+    if (workflow && workflow.nodes && Object.keys(workflow.nodes).length > 0) {
+      agentConfig.workflow = workflow;
+    }
 
     const response = await fetch("https://api.elevenlabs.io/v1/convai/agents/create", {
       method: "POST",

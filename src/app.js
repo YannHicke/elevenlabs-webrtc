@@ -1,4 +1,5 @@
 import { Conversation } from "@elevenlabs/client";
+import { initWorkflow, getPatientFormData, populateWorkflowVoices, getVoiceElements } from "./workflow-builder.js";
 
 // DOM Elements
 const tabs = document.querySelectorAll(".tab");
@@ -95,6 +96,9 @@ async function loadVoices() {
     
     voiceSelect.innerHTML = options;
     editVoiceSelect.innerHTML = options;
+    
+    // Also populate workflow voice selects
+    populateWorkflowVoices(voices);
   } catch (error) {
     console.error("Error loading voices:", error);
     voiceSelect.innerHTML = '<option value="">Failed to load voices</option>';
@@ -700,6 +704,69 @@ window.addEventListener("beforeunload", () => {
     conversation.endSession();
   }
 });
+
+// Patient Designer form handler
+const patientDesignerForm = document.getElementById("patient-designer-form");
+patientDesignerForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  
+  const patientData = getPatientFormData();
+  
+  if (!patientData.name) {
+    alert("Please enter a patient name.");
+    return;
+  }
+  
+  const submitBtn = document.getElementById("create-adaptive-patient-btn");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Creating Patient...";
+  
+  try {
+    const response = await fetch("/api/agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patientData)
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to create patient");
+    }
+    
+    const result = await response.json();
+    alert(`Adaptive patient "${patientData.name}" created successfully!`);
+    
+    // Switch to existing tab and reload
+    document.querySelector('.tab[data-tab="existing"]').click();
+    
+  } catch (error) {
+    console.error("Error creating adaptive patient:", error);
+    alert(`Error: ${error.message}`);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Create Adaptive Patient";
+  }
+});
+
+// Patient Designer voice preview/browse buttons
+const patientVoiceElements = getVoiceElements();
+if (patientVoiceElements.previewBtn && patientVoiceElements.select) {
+  patientVoiceElements.previewBtn.addEventListener("click", () => {
+    const voiceId = patientVoiceElements.select.value;
+    if (voiceId) {
+      playVoicePreview(voiceId, patientVoiceElements.previewBtn);
+    } else {
+      alert("Please select a voice first.");
+    }
+  });
+}
+
+if (patientVoiceElements.browseBtn) {
+  patientVoiceElements.browseBtn.addEventListener("click", () => {
+    targetVoiceSelect = patientVoiceElements.select;
+    openVoiceLibrary();
+  });
+}
 
 // Initialize
 loadVoices();

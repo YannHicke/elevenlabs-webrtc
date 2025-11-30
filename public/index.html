@@ -12,7 +12,8 @@
 
       <!-- Tab Navigation -->
       <div class="tabs">
-        <button class="tab active" data-tab="create">Create Patient</button>
+        <button class="tab active" data-tab="create">Simple Patient</button>
+        <button class="tab" data-tab="workflow">Adaptive Patient</button>
         <button class="tab" data-tab="existing">Use Existing</button>
       </div>
 
@@ -70,6 +71,197 @@
           </div>
 
           <button type="submit" id="create-agent-btn">Create Patient</button>
+        </form>
+      </section>
+
+      <!-- Adaptive Patient Designer Tab -->
+      <section id="workflow-tab" class="tab-content">
+        <h2>Adaptive Patient Designer</h2>
+        <p class="designer-intro">Create patients that respond dynamically based on how medical students treat them.</p>
+        
+        <form id="patient-designer-form">
+          <!-- Patient Case Section -->
+          <div class="designer-section">
+            <h3>Patient Case</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="patient-name">Patient Name *</label>
+                <input type="text" id="patient-name" placeholder="e.g., John Smith" value="Marcus Johnson" required />
+              </div>
+              <div class="form-group form-group-small">
+                <label for="patient-age">Age</label>
+                <input type="number" id="patient-age" placeholder="45" min="1" max="120" value="34" />
+              </div>
+              <div class="form-group form-group-small">
+                <label for="patient-gender">Gender</label>
+                <select id="patient-gender">
+                  <option value="male" selected>Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label for="presenting-complaint">Presenting Complaint *</label>
+              <input type="text" id="presenting-complaint" placeholder="e.g., Chest pain for 2 days" value="Called crisis line due to wife's concerns about his behavior over the past week" required />
+            </div>
+            
+            <div class="form-group">
+              <label for="hidden-diagnosis">Hidden Diagnosis (what the student should discover)</label>
+              <input type="text" id="hidden-diagnosis" placeholder="e.g., Anxiety-induced chest pain from work stress" value="Bipolar I disorder - currently in manic episode with irritable features. Hasn't slept more than 2 hours in 4 days. Stopped taking lithium 2 weeks ago because he felt cured." />
+            </div>
+            
+            <div class="form-group">
+              <label for="patient-voice">Voice</label>
+              <div class="voice-select-wrapper">
+                <select id="patient-voice">
+                  <option value="">Loading voices...</option>
+                </select>
+                <button type="button" class="btn-preview" id="patient-preview-voice-btn" title="Preview voice">▶</button>
+                <button type="button" class="btn-browse" id="patient-browse-voices-btn" title="Browse Voice Library">🔍</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Initial Presentation Section -->
+          <div class="designer-section">
+            <h3>Initial Presentation</h3>
+            <p class="section-hint">How does the patient present when the conversation begins?</p>
+            <div class="form-group">
+              <label for="initial-presentation">Patient's Initial Behavior & Demeanor *</label>
+              <textarea id="initial-presentation" rows="4" placeholder="e.g., Anxious, clutching chest, speaks quickly, avoids eye contact, seems worried but reluctant to share details." required>Speaks rapidly with pressured speech, jumping between topics. Sounds energized but irritable. Background noise suggests pacing around the room. Interrupts frequently and gets frustrated when asked to slow down. Voice is loud and animated. Occasionally laughs inappropriately or makes grandiose statements. May hear him shuffling papers or typing - claims to be working on "a revolutionary business plan."</textarea>
+            </div>
+            <div class="form-group">
+              <label for="first-words">First Words (what patient says when encounter starts)</label>
+              <input type="text" id="first-words" placeholder="e.g., Doctor, I've been having this chest pain..." value="Yeah, yeah, I'm fine, I don't know why my wife called you people - look, I don't have time for this, I'm in the middle of something HUGE right now. But fine, whatever, let's make this quick. What do you want to know?" />
+            </div>
+          </div>
+
+          <!-- Behavioral Pivots Section -->
+          <div class="designer-section">
+            <h3>Behavioral Pivots</h3>
+            <p class="section-hint">Define how the patient responds based on the student's approach. The AI will evaluate these conditions during the conversation.</p>
+            
+            <div id="pivots-container">
+              <!-- Pivot 1: Validates and Shows Interest -->
+              <div class="pivot-card" data-pivot-id="pivot-1">
+                <div class="pivot-header">
+                  <span class="pivot-icon good">&#10004;</span>
+                  <span class="pivot-title">If Professional Validates and Shows Interest</span>
+                  <button type="button" class="pivot-remove" title="Remove pivot">&times;</button>
+                </div>
+                <div class="pivot-body">
+                  <div class="form-group">
+                    <label>Trigger Condition</label>
+                    <textarea class="pivot-condition" rows="2" placeholder="What student behavior triggers this?">The healthcare professional shows genuine curiosity about the patient's ideas and projects without immediately dismissing them. They use phrases like "tell me more about that" or "that sounds interesting" and don't try to immediately redirect or calm the patient down.</textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Patient Response</label>
+                    <textarea class="pivot-response" rows="3" placeholder="How does the patient respond?">Becomes slightly more engaged and less hostile. Excitedly shares details about his "revolutionary" business idea (which is actually unrealistic - something like "I'm going to buy 50 houses and flip them all by next month"). Speaks even faster as he gets excited. May briefly reveal he hasn't been sleeping much because "sleep is for people without vision." Still grandiose but more willing to talk. Might say "FINALLY someone who gets it - my wife thinks I'm crazy but YOU understand."</textarea>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pivot 2: Tries to Slow Down -->
+              <div class="pivot-card" data-pivot-id="pivot-2">
+                <div class="pivot-header">
+                  <span class="pivot-icon bad">&#10008;</span>
+                  <span class="pivot-title">If Professional Tries to Slow Down Too Quickly</span>
+                  <button type="button" class="pivot-remove" title="Remove pivot">&times;</button>
+                </div>
+                <div class="pivot-body">
+                  <div class="form-group">
+                    <label>Trigger Condition</label>
+                    <textarea class="pivot-condition" rows="2" placeholder="What student behavior triggers this?">The healthcare professional interrupts, tells the patient to "slow down," "take a breath," or immediately tries to redirect the conversation to medication, sleep, or clinical questions before building rapport.</textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Patient Response</label>
+                    <textarea class="pivot-response" rows="3" placeholder="How does the patient respond?">Becomes noticeably more irritated and defensive. Speaks even faster. Says things like "Don't tell me to calm down, I AM calm!" or "You sound just like my wife" or "Look, I don't need another person trying to put me in a box." May threaten to hang up. Becomes resistant to answering questions. Might say "I called to help YOU understand, not to be lectured."</textarea>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pivot 3: Asks About Medications -->
+              <div class="pivot-card" data-pivot-id="pivot-3">
+                <div class="pivot-header">
+                  <span class="pivot-icon neutral">?</span>
+                  <span class="pivot-title">If Professional Asks About Medications</span>
+                  <button type="button" class="pivot-remove" title="Remove pivot">&times;</button>
+                </div>
+                <div class="pivot-body">
+                  <div class="form-group">
+                    <label>Trigger Condition</label>
+                    <textarea class="pivot-condition" rows="2" placeholder="What student behavior triggers this?">The healthcare professional asks about medications, specifically lithium or mood stabilizers, or asks if the patient has been taking their prescribed medications.</textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Patient Response</label>
+                    <textarea class="pivot-response" rows="3" placeholder="How does the patient respond?">Becomes evasive and defensive. Initially deflects with "medications, medications - that's all you people care about." If pressed gently, eventually admits he stopped taking lithium two weeks ago but immediately justifies it: "I stopped because I don't NEED it anymore - I've never felt better in my life! The lithium was making me slow and foggy. Now I can finally THINK clearly." Gets agitated if the professional suggests going back on medication.</textarea>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pivot 4: Expresses Concern for Safety -->
+              <div class="pivot-card" data-pivot-id="pivot-4">
+                <div class="pivot-header">
+                  <span class="pivot-icon good">&#10004;</span>
+                  <span class="pivot-title">If Professional Expresses Genuine Concern</span>
+                  <button type="button" class="pivot-remove" title="Remove pivot">&times;</button>
+                </div>
+                <div class="pivot-body">
+                  <div class="form-group">
+                    <label>Trigger Condition</label>
+                    <textarea class="pivot-condition" rows="2" placeholder="What student behavior triggers this?">The healthcare professional gently expresses concern about the patient's wellbeing, mentions they're worried, or asks caring questions about sleep, eating, or how the patient is really doing beneath the energy.</textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Patient Response</label>
+                    <textarea class="pivot-response" rows="3" placeholder="How does the patient respond?">Initially dismisses concern with irritation: "I'm FINE, why does everyone keep asking that?" But if the professional persists with genuine warmth (not clinical coldness), the patient may have a brief moment of vulnerability. Might pause and say something like "I mean... I guess I haven't slept much... but that's because my brain won't stop. There's so much I need to do." Voice might crack slightly or slow down momentarily before the manic energy returns. This is the window for building rapport.</textarea>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pivot 5: Uses Cold Clinical Language -->
+              <div class="pivot-card" data-pivot-id="pivot-5">
+                <div class="pivot-header">
+                  <span class="pivot-icon bad">&#10008;</span>
+                  <span class="pivot-title">If Professional Uses Cold Clinical Language</span>
+                  <button type="button" class="pivot-remove" title="Remove pivot">&times;</button>
+                </div>
+                <div class="pivot-body">
+                  <div class="form-group">
+                    <label>Trigger Condition</label>
+                    <textarea class="pivot-condition" rows="2" placeholder="What student behavior triggers this?">The healthcare professional uses overly clinical terms, sounds detached or robotic, reads from a script, or treats the interaction like a checkbox exercise rather than a human conversation.</textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Patient Response</label>
+                    <textarea class="pivot-response" rows="3" placeholder="How does the patient respond?">Becomes hostile and dismissive. "Oh great, another robot reading from a manual. You don't actually CARE, you're just doing your job." May start mocking the professional or become sarcastic. Resistance increases dramatically. May say "You know what, I don't have time for this - I have important things to do" and threaten to end the call. Trust is lost.</textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="button" id="add-pivot-btn" class="btn-secondary btn-add">
+              + Add Another Behavioral Pivot
+            </button>
+          </div>
+
+          <!-- Preview Section -->
+          <div class="designer-section preview-section">
+            <h3>Workflow Preview</h3>
+            <div id="workflow-preview" class="workflow-preview">
+              <div class="preview-node preview-start">Start</div>
+              <div class="preview-arrow">→</div>
+              <div class="preview-node preview-initial">Initial State</div>
+              <div class="preview-branches" id="preview-branches">
+                <!-- Generated dynamically -->
+              </div>
+            </div>
+          </div>
+
+          <div class="designer-actions">
+            <button type="button" id="reset-designer-btn" class="btn-secondary">Reset Form</button>
+            <button type="submit" id="create-adaptive-patient-btn">Create Adaptive Patient</button>
+          </div>
         </form>
       </section>
 

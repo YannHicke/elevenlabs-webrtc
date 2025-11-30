@@ -25178,10 +25178,227 @@ registerProcessor("rawAudioProcessor", RawAudioProcessor);
   }
 });
 
+// src/workflow-builder.js
+function initWorkflow() {
+  setupEventListeners();
+  updatePreview();
+}
+function setupEventListeners() {
+  addPivotBtn?.addEventListener("click", addPivot);
+  resetDesignerBtn?.addEventListener("click", resetForm);
+  pivotsContainer?.addEventListener("click", (e2) => {
+    if (e2.target.classList.contains("pivot-remove")) {
+      const card = e2.target.closest(".pivot-card");
+      if (card && pivotsContainer.querySelectorAll(".pivot-card").length > 1) {
+        card.remove();
+        updatePreview();
+      } else {
+        alert("You need at least one behavioral pivot.");
+      }
+    }
+  });
+  pivotsContainer?.addEventListener("input", (e2) => {
+    if (e2.target.classList.contains("pivot-condition")) {
+      updatePreview();
+    }
+  });
+}
+function addPivot() {
+  pivotCounter++;
+  const pivotId = `pivot-${pivotCounter}`;
+  const pivotCard = document.createElement("div");
+  pivotCard.className = "pivot-card";
+  pivotCard.dataset.pivotId = pivotId;
+  pivotCard.innerHTML = `
+    <div class="pivot-header">
+      <span class="pivot-icon neutral">?</span>
+      <span class="pivot-title">Custom Behavioral Pivot</span>
+      <button type="button" class="pivot-remove" title="Remove pivot">&times;</button>
+    </div>
+    <div class="pivot-body">
+      <div class="form-group">
+        <label>Trigger Condition</label>
+        <textarea class="pivot-condition" rows="2" placeholder="What student behavior triggers this response?"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Patient Response</label>
+        <textarea class="pivot-response" rows="3" placeholder="How does the patient respond to this behavior?"></textarea>
+      </div>
+    </div>
+  `;
+  pivotsContainer.appendChild(pivotCard);
+  updatePreview();
+  pivotCard.querySelector(".pivot-condition").focus();
+}
+function resetForm() {
+  if (!confirm("Reset the form? This will reload the page with the example patient.")) return;
+  window.location.reload();
+}
+function updatePreview() {
+  if (!previewBranches) return;
+  const pivots = pivotsContainer?.querySelectorAll(".pivot-card") || [];
+  let html = "";
+  pivots.forEach((pivot, index) => {
+    const icon = pivot.querySelector(".pivot-icon");
+    const title = pivot.querySelector(".pivot-title")?.textContent || `Pivot ${index + 1}`;
+    let branchClass = "preview-branch-neutral";
+    if (icon?.classList.contains("good")) branchClass = "preview-branch-good";
+    if (icon?.classList.contains("bad")) branchClass = "preview-branch-bad";
+    const shortTitle = title.length > 25 ? title.substring(0, 22) + "..." : title;
+    html += `
+      <div class="preview-branch ${branchClass}">
+        <span class="preview-arrow">\u2192</span>
+        <div class="preview-node">${shortTitle}</div>
+      </div>
+    `;
+  });
+  previewBranches.innerHTML = html;
+}
+function getWorkflowData() {
+  const patientName = document.getElementById("patient-name")?.value || "Patient";
+  const patientAge = document.getElementById("patient-age")?.value || "";
+  const patientGender = document.getElementById("patient-gender")?.value || "male";
+  const presentingComplaint = document.getElementById("presenting-complaint")?.value || "";
+  const hiddenDiagnosis = document.getElementById("hidden-diagnosis")?.value || "";
+  const initialPresentation = document.getElementById("initial-presentation")?.value || "";
+  const firstWords = document.getElementById("first-words")?.value || "";
+  const basePrompt = buildPatientPrompt({
+    name: patientName,
+    age: patientAge,
+    gender: patientGender,
+    complaint: presentingComplaint,
+    diagnosis: hiddenDiagnosis
+  });
+  const nodes = {
+    start_node: {
+      type: "start",
+      position: { x: 0, y: 0 },
+      edge_order: ["edge_start_to_initial"]
+    },
+    initial_state: {
+      type: "override_agent",
+      label: "Initial Presentation",
+      additional_prompt: `CURRENT STATE: Initial presentation. ${initialPresentation}
+
+You are in your initial state. Present your symptoms as described but don't volunteer too much information yet. Wait to see how the medical student approaches you before deciding how open to be.`,
+      position: { x: 200, y: 0 },
+      edge_order: []
+    }
+  };
+  const edges = {
+    edge_start_to_initial: {
+      source: "start_node",
+      target: "initial_state",
+      forward_condition: { type: "unconditional" }
+    }
+  };
+  const pivotCards = pivotsContainer?.querySelectorAll(".pivot-card") || [];
+  pivotCards.forEach((card, index) => {
+    const pivotId = card.dataset.pivotId || `pivot_${index}`;
+    const nodeId = `state_${pivotId}`;
+    const edgeId = `edge_initial_to_${pivotId}`;
+    const condition = card.querySelector(".pivot-condition")?.value || "";
+    const response = card.querySelector(".pivot-response")?.value || "";
+    const title = card.querySelector(".pivot-title")?.textContent || `State ${index + 1}`;
+    nodes[nodeId] = {
+      type: "override_agent",
+      label: title,
+      additional_prompt: `BEHAVIORAL STATE: ${title}
+
+The medical student has triggered this response. Your behavior now:
+${response}
+
+Continue the conversation in this emotional state. If the student's approach changes significantly, you may shift to a different state.`,
+      position: { x: 400, y: index * 100 },
+      edge_order: []
+    };
+    edges[edgeId] = {
+      source: "initial_state",
+      target: nodeId,
+      forward_condition: {
+        type: "llm",
+        condition
+      }
+    };
+    nodes.initial_state.edge_order.push(edgeId);
+  });
+  return {
+    nodes,
+    edges,
+    basePrompt,
+    firstMessage: firstWords
+  };
+}
+function buildPatientPrompt({ name, age, gender, complaint, diagnosis }) {
+  return `You are a standardized patient for medical education. You are role-playing as a patient in a clinical encounter with a medical student.
+
+PATIENT IDENTITY:
+- Name: ${name}
+- Age: ${age || "Not specified"}
+- Gender: ${gender}
+
+PRESENTING COMPLAINT: ${complaint}
+
+${diagnosis ? `HIDDEN INFORMATION (reveal only if the student builds rapport and asks the right questions): ${diagnosis}` : ""}
+
+IMPORTANT INSTRUCTIONS:
+1. Stay in character as the patient at all times
+2. Respond naturally and realistically to the student's questions
+3. Your emotional state and willingness to share information should depend on how the student treats you
+4. If the student is empathetic and professional, you can open up more
+5. If the student is rushed, dismissive, or uses too much jargon, become more guarded
+6. Never break character to explain what you're doing or why
+7. React emotionally as a real patient would - show anxiety, frustration, relief, etc.
+8. Don't volunteer all information at once - let the student discover things through good questioning`;
+}
+function getPatientFormData() {
+  const workflowData = getWorkflowData();
+  return {
+    name: document.getElementById("patient-name")?.value || "Adaptive Patient",
+    prompt: workflowData.basePrompt,
+    first_message: workflowData.firstMessage,
+    voice_id: document.getElementById("patient-voice")?.value || "",
+    workflow: {
+      nodes: workflowData.nodes,
+      edges: workflowData.edges
+    }
+  };
+}
+function populateWorkflowVoices(voices) {
+  if (!patientVoiceSelect) return;
+  const options = voices.map(
+    (v2) => `<option value="${v2.voice_id}">${v2.name}</option>`
+  ).join("");
+  patientVoiceSelect.innerHTML = '<option value="">Select a voice...</option>' + options;
+}
+function getVoiceElements() {
+  return {
+    select: patientVoiceSelect,
+    previewBtn: patientPreviewVoiceBtn,
+    browseBtn: patientBrowseVoicesBtn
+  };
+}
+var pivotCounter, patientForm, pivotsContainer, addPivotBtn, resetDesignerBtn, previewBranches, patientVoiceSelect, patientPreviewVoiceBtn, patientBrowseVoicesBtn;
+var init_workflow_builder = __esm({
+  "src/workflow-builder.js"() {
+    pivotCounter = 5;
+    patientForm = document.getElementById("patient-designer-form");
+    pivotsContainer = document.getElementById("pivots-container");
+    addPivotBtn = document.getElementById("add-pivot-btn");
+    resetDesignerBtn = document.getElementById("reset-designer-btn");
+    previewBranches = document.getElementById("preview-branches");
+    patientVoiceSelect = document.getElementById("patient-voice");
+    patientPreviewVoiceBtn = document.getElementById("patient-preview-voice-btn");
+    patientBrowseVoicesBtn = document.getElementById("patient-browse-voices-btn");
+    initWorkflow();
+  }
+});
+
 // src/app.js
 var require_app = __commonJS({
   "src/app.js"() {
     init_lib_modern();
+    init_workflow_builder();
     var tabs = document.querySelectorAll(".tab");
     var tabContents = document.querySelectorAll(".tab-content");
     var agentForm = document.getElementById("agent-form");
@@ -25256,6 +25473,7 @@ var require_app = __commonJS({
         ).join("");
         voiceSelect.innerHTML = options;
         editVoiceSelect.innerHTML = options;
+        populateWorkflowVoices(voices);
       } catch (error) {
         console.error("Error loading voices:", error);
         voiceSelect.innerHTML = '<option value="">Failed to load voices</option>';
@@ -25741,6 +25959,55 @@ var require_app = __commonJS({
         conversation.endSession();
       }
     });
+    var patientDesignerForm = document.getElementById("patient-designer-form");
+    patientDesignerForm?.addEventListener("submit", async (e2) => {
+      e2.preventDefault();
+      const patientData = getPatientFormData();
+      if (!patientData.name) {
+        alert("Please enter a patient name.");
+        return;
+      }
+      const submitBtn = document.getElementById("create-adaptive-patient-btn");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Creating Patient...";
+      try {
+        const response = await fetch("/api/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patientData)
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to create patient");
+        }
+        const result = await response.json();
+        alert(`Adaptive patient "${patientData.name}" created successfully!`);
+        document.querySelector('.tab[data-tab="existing"]').click();
+      } catch (error) {
+        console.error("Error creating adaptive patient:", error);
+        alert(`Error: ${error.message}`);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Create Adaptive Patient";
+      }
+    });
+    var patientVoiceElements = getVoiceElements();
+    if (patientVoiceElements.previewBtn && patientVoiceElements.select) {
+      patientVoiceElements.previewBtn.addEventListener("click", () => {
+        const voiceId = patientVoiceElements.select.value;
+        if (voiceId) {
+          playVoicePreview(voiceId, patientVoiceElements.previewBtn);
+        } else {
+          alert("Please select a voice first.");
+        }
+      });
+    }
+    if (patientVoiceElements.browseBtn) {
+      patientVoiceElements.browseBtn.addEventListener("click", () => {
+        targetVoiceSelect = patientVoiceElements.select;
+        openVoiceLibrary();
+      });
+    }
     loadVoices();
   }
 });
