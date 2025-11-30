@@ -1,5 +1,14 @@
 import { Conversation } from "@elevenlabs/client";
-import { initWorkflow, getPatientFormData, populateWorkflowVoices, getVoiceElements } from "./workflow-builder.js";
+import { 
+  initWorkflow, 
+  getPatientFormData, 
+  populateWorkflowVoices, 
+  getVoiceElements,
+  loadPatientData,
+  setEditMode,
+  getEditingAgentId,
+  clearEditMode
+} from "./workflow-builder.js";
 
 // DOM Elements
 const tabs = document.querySelectorAll(".tab");
@@ -77,6 +86,11 @@ tabs.forEach(tab => {
     
     if (targetTab === "existing") {
       loadAgents();
+    }
+    
+    // Clear edit mode when switching away from workflow tab
+    if (targetTab !== "workflow") {
+      clearEditMode();
     }
   });
 });
@@ -392,16 +406,33 @@ window.selectAgent = function(agentId, agentName) {
 // Open edit modal
 window.editAgent = async function(agentId) {
   try {
+    const response = await fetch(`/api/agents/${agentId}`);
+    if (!response.ok) throw new Error("Failed to load agent");
+    
+    const agent = await response.json();
+    
+    // Check if this is an adaptive patient (has workflow)
+    if (agent.workflow && agent.workflow.nodes && Object.keys(agent.workflow.nodes).length > 1) {
+      // Load into Patient Designer for editing
+      loadPatientData(agent);
+      setEditMode(agentId);
+      
+      // Switch to Adaptive Patient tab
+      tabs.forEach(t => t.classList.remove("active"));
+      tabContents.forEach(c => c.classList.remove("active"));
+      
+      document.querySelector('.tab[data-tab="workflow"]').classList.add("active");
+      document.getElementById("workflow-tab").classList.add("active");
+      
+      return;
+    }
+    
+    // Simple patient - use regular edit modal
     editModal.classList.remove("hidden");
     editForm.reset();
     editAgentId.value = agentId;
     saveAgentBtn.disabled = true;
     saveAgentBtn.innerHTML = '<span class="loading"></span>Loading...';
-    
-    const response = await fetch(`/api/agents/${agentId}`);
-    if (!response.ok) throw new Error("Failed to load agent");
-    
-    const agent = await response.json();
     
     // Populate form
     editAgentName.value = agent.name || '';
@@ -711,6 +742,8 @@ patientDesignerForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
   
   const patientData = getPatientFormData();
+  const editingId = getEditingAgentId();
+  const isEditing = !!editingId;
   
   if (!patientData.name) {
     alert("Please enter a patient name.");
@@ -719,32 +752,47 @@ patientDesignerForm?.addEventListener("submit", async (e) => {
   
   const submitBtn = document.getElementById("create-adaptive-patient-btn");
   submitBtn.disabled = true;
-  submitBtn.textContent = "Creating Patient...";
+  submitBtn.textContent = isEditing ? "Updating Patient..." : "Creating Patient...";
   
   try {
-    const response = await fetch("/api/agents", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patientData)
-    });
+    let response;
+    
+    if (isEditing) {
+      // Update existing patient
+      response = await fetch(`/api/agents/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patientData)
+      });
+    } else {
+      // Create new patient
+      response = await fetch("/api/agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patientData)
+      });
+    }
     
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || "Failed to create patient");
+      throw new Error(error.error || `Failed to ${isEditing ? 'update' : 'create'} patient`);
     }
     
     const result = await response.json();
-    alert(`Adaptive patient "${patientData.name}" created successfully!`);
+    alert(`Adaptive patient "${patientData.name}" ${isEditing ? 'updated' : 'created'} successfully!`);
+    
+    // Clear edit mode
+    clearEditMode();
     
     // Switch to existing tab and reload
     document.querySelector('.tab[data-tab="existing"]').click();
     
   } catch (error) {
-    console.error("Error creating adaptive patient:", error);
+    console.error(`Error ${isEditing ? 'updating' : 'creating'} adaptive patient:`, error);
     alert(`Error: ${error.message}`);
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = "Create Adaptive Patient";
+    submitBtn.textContent = isEditing ? "Update Patient" : "Create Adaptive Patient";
   }
 });
 

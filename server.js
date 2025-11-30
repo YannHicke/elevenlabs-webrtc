@@ -194,7 +194,7 @@ app.patch("/api/agents/:agentId", async (req, res) => {
     }
 
     const { agentId } = req.params;
-    const { name, prompt, firstMessage, voiceId, language } = req.body;
+    const { name, prompt, firstMessage, first_message, voiceId, voice_id, language, workflow } = req.body;
 
     const updateData = {};
     
@@ -203,13 +203,16 @@ app.patch("/api/agents/:agentId", async (req, res) => {
     }
 
     // Build conversation_config if any relevant fields are provided
-    const hasConversationUpdates = prompt !== undefined || firstMessage !== undefined || 
-                                    voiceId !== undefined || language !== undefined;
+    const actualFirstMessage = firstMessage || first_message;
+    const actualVoiceId = voiceId || voice_id;
+    
+    const hasConversationUpdates = prompt !== undefined || actualFirstMessage !== undefined || 
+                                    actualVoiceId !== undefined || language !== undefined;
     
     if (hasConversationUpdates) {
       updateData.conversation_config = {};
       
-      if (prompt !== undefined || firstMessage !== undefined || language !== undefined) {
+      if (prompt !== undefined || actualFirstMessage !== undefined || language !== undefined) {
         updateData.conversation_config.agent = {};
         
         if (prompt !== undefined) {
@@ -218,8 +221,8 @@ app.patch("/api/agents/:agentId", async (req, res) => {
           };
         }
         
-        if (firstMessage !== undefined) {
-          updateData.conversation_config.agent.first_message = firstMessage;
+        if (actualFirstMessage !== undefined) {
+          updateData.conversation_config.agent.first_message = actualFirstMessage;
         }
         
         if (language !== undefined) {
@@ -227,11 +230,16 @@ app.patch("/api/agents/:agentId", async (req, res) => {
         }
       }
       
-      if (voiceId !== undefined) {
+      if (actualVoiceId !== undefined) {
         updateData.conversation_config.tts = {
-          voice_id: voiceId,
+          voice_id: actualVoiceId,
         };
       }
+    }
+
+    // Add workflow if provided
+    if (workflow && workflow.nodes && Object.keys(workflow.nodes).length > 0) {
+      updateData.workflow = workflow;
     }
 
     const response = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {

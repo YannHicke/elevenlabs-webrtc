@@ -269,5 +269,183 @@ export function getVoiceElements() {
   };
 }
 
+// Load existing patient data into the form (for editing)
+export function loadPatientData(agent) {
+  if (!agent) return;
+  
+  // Extract patient info from the prompt
+  const prompt = agent.conversation_config?.agent?.prompt?.prompt || '';
+  
+  // Set name
+  document.getElementById('patient-name').value = agent.name || '';
+  
+  // Try to extract age from prompt
+  const ageMatch = prompt.match(/Age:\s*(\d+)/i);
+  if (ageMatch) {
+    document.getElementById('patient-age').value = ageMatch[1];
+  }
+  
+  // Try to extract gender from prompt
+  const genderMatch = prompt.match(/Gender:\s*(\w+)/i);
+  if (genderMatch) {
+    const gender = genderMatch[1].toLowerCase();
+    document.getElementById('patient-gender').value = gender;
+  }
+  
+  // Try to extract presenting complaint
+  const complaintMatch = prompt.match(/PRESENTING COMPLAINT:\s*([^\n]+)/i);
+  if (complaintMatch) {
+    document.getElementById('presenting-complaint').value = complaintMatch[1].trim();
+  }
+  
+  // Try to extract hidden diagnosis
+  const hiddenMatch = prompt.match(/HIDDEN INFORMATION[^:]*:\s*([^\n]+)/i);
+  if (hiddenMatch) {
+    document.getElementById('hidden-diagnosis').value = hiddenMatch[1].trim();
+  }
+  
+  // Set first words
+  document.getElementById('first-words').value = agent.conversation_config?.agent?.first_message || '';
+  
+  // Set voice
+  const voiceId = agent.conversation_config?.tts?.voice_id;
+  if (voiceId && patientVoiceSelect) {
+    patientVoiceSelect.value = voiceId;
+  }
+  
+  // Load workflow pivots if present
+  if (agent.workflow && agent.workflow.nodes) {
+    loadWorkflowPivots(agent.workflow);
+  }
+  
+  updatePreview();
+}
+
+function loadWorkflowPivots(workflow) {
+  if (!workflow.nodes || !workflow.edges) return;
+  
+  // Find initial state node to get its behavior
+  const initialNode = workflow.nodes['initial_state'];
+  if (initialNode && initialNode.additional_prompt) {
+    // Try to extract initial presentation from the prompt
+    const presentation = initialNode.additional_prompt
+      .replace(/CURRENT STATE:[^\n]*\n?/i, '')
+      .replace(/You are in your initial state\.[^\n]*\n?/i, '')
+      .trim();
+    
+    if (presentation) {
+      document.getElementById('initial-presentation').value = presentation;
+    }
+  }
+  
+  // Clear existing pivots
+  pivotsContainer.innerHTML = '';
+  pivotCounter = 0;
+  
+  // Find all pivot nodes (not start_node or initial_state)
+  const pivotNodes = Object.entries(workflow.nodes).filter(([id, node]) => 
+    id !== 'start_node' && id !== 'initial_state' && node.type === 'override_agent'
+  );
+  
+  // Find edges for each pivot to get conditions
+  pivotNodes.forEach(([nodeId, node]) => {
+    pivotCounter++;
+    const pivotId = `pivot-${pivotCounter}`;
+    
+    // Find the edge that leads to this node
+    const edge = Object.values(workflow.edges).find(e => e.target === nodeId);
+    const condition = edge?.forward_condition?.condition || '';
+    
+    // Extract response from additional_prompt
+    let response = node.additional_prompt || '';
+    response = response
+      .replace(/BEHAVIORAL STATE:[^\n]*\n?/i, '')
+      .replace(/The medical student has triggered this response\.[^\n]*\n?/i, '')
+      .replace(/Continue the conversation[^\n]*\n?/i, '')
+      .replace(/Your behavior now:\s*/i, '')
+      .trim();
+    
+    // Determine icon type based on label
+    const label = node.label || `Pivot ${pivotCounter}`;
+    let iconClass = 'neutral';
+    let iconSymbol = '?';
+    
+    if (label.toLowerCase().includes('empathy') || 
+        label.toLowerCase().includes('concern') || 
+        label.toLowerCase().includes('interest') ||
+        label.toLowerCase().includes('validates')) {
+      iconClass = 'good';
+      iconSymbol = '&#10004;';
+    } else if (label.toLowerCase().includes('dismiss') || 
+               label.toLowerCase().includes('cold') || 
+               label.toLowerCase().includes('slow down') ||
+               label.toLowerCase().includes('hostile')) {
+      iconClass = 'bad';
+      iconSymbol = '&#10008;';
+    }
+    
+    const pivotCard = document.createElement('div');
+    pivotCard.className = 'pivot-card';
+    pivotCard.dataset.pivotId = pivotId;
+    
+    pivotCard.innerHTML = `
+      <div class="pivot-header">
+        <span class="pivot-icon ${iconClass}">${iconSymbol}</span>
+        <span class="pivot-title">${escapeHtml(label)}</span>
+        <button type="button" class="pivot-remove" title="Remove pivot">&times;</button>
+      </div>
+      <div class="pivot-body">
+        <div class="form-group">
+          <label>Trigger Condition</label>
+          <textarea class="pivot-condition" rows="2">${escapeHtml(condition)}</textarea>
+        </div>
+        <div class="form-group">
+          <label>Patient Response</label>
+          <textarea class="pivot-response" rows="3">${escapeHtml(response)}</textarea>
+        </div>
+      </div>
+    `;
+    
+    pivotsContainer.appendChild(pivotCard);
+  });
+  
+  // If no pivots found, add default ones
+  if (pivotCounter === 0) {
+    addPivot();
+    addPivot();
+  }
+}
+
+// Set edit mode (changes button text and behavior)
+let editingAgentId = null;
+
+export function setEditMode(agentId) {
+  editingAgentId = agentId;
+  const submitBtn = document.getElementById('create-adaptive-patient-btn');
+  if (submitBtn) {
+    submitBtn.textContent = agentId ? 'Update Patient' : 'Create Adaptive Patient';
+  }
+}
+
+export function getEditingAgentId() {
+  return editingAgentId;
+}
+
+export function clearEditMode() {
+  editingAgentId = null;
+  const submitBtn = document.getElementById('create-adaptive-patient-btn');
+  if (submitBtn) {
+    submitBtn.textContent = 'Create Adaptive Patient';
+  }
+}
+
+// Helper
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 // Initialize on load
 initWorkflow();

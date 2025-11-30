@@ -25378,7 +25378,119 @@ function getVoiceElements() {
     browseBtn: patientBrowseVoicesBtn
   };
 }
-var pivotCounter, patientForm, pivotsContainer, addPivotBtn, resetDesignerBtn, previewBranches, patientVoiceSelect, patientPreviewVoiceBtn, patientBrowseVoicesBtn;
+function loadPatientData(agent) {
+  if (!agent) return;
+  const prompt = agent.conversation_config?.agent?.prompt?.prompt || "";
+  document.getElementById("patient-name").value = agent.name || "";
+  const ageMatch = prompt.match(/Age:\s*(\d+)/i);
+  if (ageMatch) {
+    document.getElementById("patient-age").value = ageMatch[1];
+  }
+  const genderMatch = prompt.match(/Gender:\s*(\w+)/i);
+  if (genderMatch) {
+    const gender = genderMatch[1].toLowerCase();
+    document.getElementById("patient-gender").value = gender;
+  }
+  const complaintMatch = prompt.match(/PRESENTING COMPLAINT:\s*([^\n]+)/i);
+  if (complaintMatch) {
+    document.getElementById("presenting-complaint").value = complaintMatch[1].trim();
+  }
+  const hiddenMatch = prompt.match(/HIDDEN INFORMATION[^:]*:\s*([^\n]+)/i);
+  if (hiddenMatch) {
+    document.getElementById("hidden-diagnosis").value = hiddenMatch[1].trim();
+  }
+  document.getElementById("first-words").value = agent.conversation_config?.agent?.first_message || "";
+  const voiceId = agent.conversation_config?.tts?.voice_id;
+  if (voiceId && patientVoiceSelect) {
+    patientVoiceSelect.value = voiceId;
+  }
+  if (agent.workflow && agent.workflow.nodes) {
+    loadWorkflowPivots(agent.workflow);
+  }
+  updatePreview();
+}
+function loadWorkflowPivots(workflow) {
+  if (!workflow.nodes || !workflow.edges) return;
+  const initialNode = workflow.nodes["initial_state"];
+  if (initialNode && initialNode.additional_prompt) {
+    const presentation = initialNode.additional_prompt.replace(/CURRENT STATE:[^\n]*\n?/i, "").replace(/You are in your initial state\.[^\n]*\n?/i, "").trim();
+    if (presentation) {
+      document.getElementById("initial-presentation").value = presentation;
+    }
+  }
+  pivotsContainer.innerHTML = "";
+  pivotCounter = 0;
+  const pivotNodes = Object.entries(workflow.nodes).filter(
+    ([id, node]) => id !== "start_node" && id !== "initial_state" && node.type === "override_agent"
+  );
+  pivotNodes.forEach(([nodeId, node]) => {
+    pivotCounter++;
+    const pivotId = `pivot-${pivotCounter}`;
+    const edge = Object.values(workflow.edges).find((e2) => e2.target === nodeId);
+    const condition = edge?.forward_condition?.condition || "";
+    let response = node.additional_prompt || "";
+    response = response.replace(/BEHAVIORAL STATE:[^\n]*\n?/i, "").replace(/The medical student has triggered this response\.[^\n]*\n?/i, "").replace(/Continue the conversation[^\n]*\n?/i, "").replace(/Your behavior now:\s*/i, "").trim();
+    const label = node.label || `Pivot ${pivotCounter}`;
+    let iconClass = "neutral";
+    let iconSymbol = "?";
+    if (label.toLowerCase().includes("empathy") || label.toLowerCase().includes("concern") || label.toLowerCase().includes("interest") || label.toLowerCase().includes("validates")) {
+      iconClass = "good";
+      iconSymbol = "&#10004;";
+    } else if (label.toLowerCase().includes("dismiss") || label.toLowerCase().includes("cold") || label.toLowerCase().includes("slow down") || label.toLowerCase().includes("hostile")) {
+      iconClass = "bad";
+      iconSymbol = "&#10008;";
+    }
+    const pivotCard = document.createElement("div");
+    pivotCard.className = "pivot-card";
+    pivotCard.dataset.pivotId = pivotId;
+    pivotCard.innerHTML = `
+      <div class="pivot-header">
+        <span class="pivot-icon ${iconClass}">${iconSymbol}</span>
+        <span class="pivot-title">${escapeHtml(label)}</span>
+        <button type="button" class="pivot-remove" title="Remove pivot">&times;</button>
+      </div>
+      <div class="pivot-body">
+        <div class="form-group">
+          <label>Trigger Condition</label>
+          <textarea class="pivot-condition" rows="2">${escapeHtml(condition)}</textarea>
+        </div>
+        <div class="form-group">
+          <label>Patient Response</label>
+          <textarea class="pivot-response" rows="3">${escapeHtml(response)}</textarea>
+        </div>
+      </div>
+    `;
+    pivotsContainer.appendChild(pivotCard);
+  });
+  if (pivotCounter === 0) {
+    addPivot();
+    addPivot();
+  }
+}
+function setEditMode(agentId) {
+  editingAgentId = agentId;
+  const submitBtn = document.getElementById("create-adaptive-patient-btn");
+  if (submitBtn) {
+    submitBtn.textContent = agentId ? "Update Patient" : "Create Adaptive Patient";
+  }
+}
+function getEditingAgentId() {
+  return editingAgentId;
+}
+function clearEditMode() {
+  editingAgentId = null;
+  const submitBtn = document.getElementById("create-adaptive-patient-btn");
+  if (submitBtn) {
+    submitBtn.textContent = "Create Adaptive Patient";
+  }
+}
+function escapeHtml(text) {
+  if (!text) return "";
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+var pivotCounter, patientForm, pivotsContainer, addPivotBtn, resetDesignerBtn, previewBranches, patientVoiceSelect, patientPreviewVoiceBtn, patientBrowseVoicesBtn, editingAgentId;
 var init_workflow_builder = __esm({
   "src/workflow-builder.js"() {
     pivotCounter = 5;
@@ -25390,6 +25502,7 @@ var init_workflow_builder = __esm({
     patientVoiceSelect = document.getElementById("patient-voice");
     patientPreviewVoiceBtn = document.getElementById("patient-preview-voice-btn");
     patientBrowseVoicesBtn = document.getElementById("patient-browse-voices-btn");
+    editingAgentId = null;
     initWorkflow();
   }
 });
@@ -25459,6 +25572,9 @@ var require_app = __commonJS({
         document.getElementById(`${targetTab}-tab`).classList.add("active");
         if (targetTab === "existing") {
           loadAgents();
+        }
+        if (targetTab !== "workflow") {
+          clearEditMode();
         }
       });
     });
@@ -25572,8 +25688,8 @@ var require_app = __commonJS({
         voiceLibraryResults.innerHTML = voices.map((v2) => `
       <div class="voice-library-card">
         <div class="voice-library-info">
-          <h4>${escapeHtml(v2.name)}</h4>
-          <p>${escapeHtml(v2.description || "No description")}</p>
+          <h4>${escapeHtml2(v2.name)}</h4>
+          <p>${escapeHtml2(v2.description || "No description")}</p>
           <div class="voice-meta">
             ${v2.category ? `<span class="voice-tag">${v2.category}</span>` : ""}
             ${v2.labels?.language ? `<span class="voice-tag">${v2.labels.language.toUpperCase()}</span>` : ""}
@@ -25584,7 +25700,7 @@ var require_app = __commonJS({
         </div>
         <div class="voice-library-actions">
           <button class="btn-preview btn-preview-lib" onclick="window.previewLibraryVoice('${v2.voice_id}', this)">\u25B6</button>
-          <button onclick="window.addVoiceFromLibrary('${v2.public_owner_id}', '${v2.voice_id}', '${escapeHtml(v2.name).replace(/'/g, "\\'")}')">
+          <button onclick="window.addVoiceFromLibrary('${v2.public_owner_id}', '${v2.voice_id}', '${escapeHtml2(v2.name).replace(/'/g, "\\'")}')">
             Add
           </button>
         </div>
@@ -25595,7 +25711,7 @@ var require_app = __commonJS({
         voiceLibraryResults.innerHTML = "<p>Failed to search. Please try again.</p>";
       }
     }
-    function escapeHtml(text) {
+    function escapeHtml2(text) {
       if (!text) return "";
       const div = document.createElement("div");
       div.textContent = text;
@@ -25711,14 +25827,23 @@ var require_app = __commonJS({
     };
     window.editAgent = async function(agentId) {
       try {
+        const response = await fetch(`/api/agents/${agentId}`);
+        if (!response.ok) throw new Error("Failed to load agent");
+        const agent = await response.json();
+        if (agent.workflow && agent.workflow.nodes && Object.keys(agent.workflow.nodes).length > 1) {
+          loadPatientData(agent);
+          setEditMode(agentId);
+          tabs.forEach((t) => t.classList.remove("active"));
+          tabContents.forEach((c2) => c2.classList.remove("active"));
+          document.querySelector('.tab[data-tab="workflow"]').classList.add("active");
+          document.getElementById("workflow-tab").classList.add("active");
+          return;
+        }
         editModal.classList.remove("hidden");
         editForm.reset();
         editAgentId.value = agentId;
         saveAgentBtn.disabled = true;
         saveAgentBtn.innerHTML = '<span class="loading"></span>Loading...';
-        const response = await fetch(`/api/agents/${agentId}`);
-        if (!response.ok) throw new Error("Failed to load agent");
-        const agent = await response.json();
         editAgentName.value = agent.name || "";
         editAgentPrompt.value = agent.conversation_config?.agent?.prompt?.prompt || "";
         editFirstMessage.value = agent.conversation_config?.agent?.first_message || "";
@@ -25963,32 +26088,44 @@ var require_app = __commonJS({
     patientDesignerForm?.addEventListener("submit", async (e2) => {
       e2.preventDefault();
       const patientData = getPatientFormData();
+      const editingId = getEditingAgentId();
+      const isEditing = !!editingId;
       if (!patientData.name) {
         alert("Please enter a patient name.");
         return;
       }
       const submitBtn = document.getElementById("create-adaptive-patient-btn");
       submitBtn.disabled = true;
-      submitBtn.textContent = "Creating Patient...";
+      submitBtn.textContent = isEditing ? "Updating Patient..." : "Creating Patient...";
       try {
-        const response = await fetch("/api/agents", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(patientData)
-        });
+        let response;
+        if (isEditing) {
+          response = await fetch(`/api/agents/${editingId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(patientData)
+          });
+        } else {
+          response = await fetch("/api/agents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(patientData)
+          });
+        }
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.error || "Failed to create patient");
+          throw new Error(error.error || `Failed to ${isEditing ? "update" : "create"} patient`);
         }
         const result = await response.json();
-        alert(`Adaptive patient "${patientData.name}" created successfully!`);
+        alert(`Adaptive patient "${patientData.name}" ${isEditing ? "updated" : "created"} successfully!`);
+        clearEditMode();
         document.querySelector('.tab[data-tab="existing"]').click();
       } catch (error) {
-        console.error("Error creating adaptive patient:", error);
+        console.error(`Error ${isEditing ? "updating" : "creating"} adaptive patient:`, error);
         alert(`Error: ${error.message}`);
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = "Create Adaptive Patient";
+        submitBtn.textContent = isEditing ? "Update Patient" : "Create Adaptive Patient";
       }
     });
     var patientVoiceElements = getVoiceElements();
